@@ -5,8 +5,8 @@ from objects import tiles
 from objects import entities
 
 # Constants
-WIDTH = 1600
-HEIGHT = 900
+WIDTH = 1000
+HEIGHT = 600
 TILESIZE = 20
 GRIDWIDTH = WIDTH // TILESIZE
 GRIDHEIGHT = HEIGHT // TILESIZE
