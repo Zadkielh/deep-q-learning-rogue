@@ -4,6 +4,12 @@ import random
 PLAYER = 0
 GOBLIN = 1
 
+# View Distance
+VIEW_DISTANCE_LOW = (-1,2)
+VIEW_DISTANCE_MEDIUM = (-2,3)
+VIEW_DISTANCE_HIGH = (-3,4)
+VIEW_DISTANCE_MAX = (-100, 100)
+
 ENTITIES_COLLISION = [
     PLAYER,
     GOBLIN
@@ -32,7 +38,7 @@ def CreateEnemy(tier, room, grid, entities):
 def IsTileBlocked(x, y, grid, entities, caller=None):
     for type in tiles.BLOCKED_TILES:
         if grid[y][x] == type:
-            return True
+            return True, type
     
     for entity in entities:
         if entity is caller:
@@ -41,10 +47,10 @@ def IsTileBlocked(x, y, grid, entities, caller=None):
         if entity.x == x and entity.y == y:
             for collision in ENTITIES_COLLISION:
                 if entity.type == collision:
-                    return True
+                    return True, entity
         
 
-    return False
+    return False, None
 
 def PlaceEnemy(x, y, grid, entities):
     if IsTileBlocked(x, y, grid, entities):
@@ -60,18 +66,26 @@ class Entity:
     def __init__(self, x, y):
         self.x = x
         self.y = y
+        self.isAlive = True
         self.health = 1
         self.isHostile = False
 
     def move(self, dx, dy, grid, entities):
-        if not IsTileBlocked(self.x + dx, self.y + dy, grid, entities):
+        blocked, type = IsTileBlocked(self.x + dx, self.y + dy, grid, entities)
+        if not blocked:
             # Move
             self.x += dx
             self.y += dy
-
+        else:
+            if not isinstance(type, int):
+                type.interact(self)
+                
     def set_pos(self, x, y):
         self.x = x
         self.y = y
+
+    def interact(self, caller):
+        pass
 
 class Player(Entity):
     def __init__(self, x, y, name):
@@ -80,6 +94,7 @@ class Player(Entity):
         self.health = 10
         self.type = PLAYER
         self.color = (0,0,255)
+        self.viewDistance = VIEW_DISTANCE_LOW
         
 class Enemy(Entity):
     def __init__(self, x, y):
@@ -135,6 +150,13 @@ class Enemy(Entity):
             self.chase(player.x, player.y, grid, entities)
         else:
             self.wander(grid, entities)
+
+    def performCombatRound(self, caller):
+        if caller.type == PLAYER:
+            self.isAlive = False
+
+    def interact(self, caller):
+        self.performCombatRound(caller)
 
 class Goblin(Enemy):
     def __init__(self, x, y):

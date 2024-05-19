@@ -55,3 +55,11 @@ class Room:
 
     def contains(self, x, y):
         return self.x1 <= x <= self.x2 and self.y1 <= y <= self.y2
+    
+    def hasDoor(self, grid):
+        for x in range(self.x1, self.x2):
+            for y in range(self.y1, self.y2):
+                if grid[y][x] == DOOR:
+                    return True
+                
+        return False
