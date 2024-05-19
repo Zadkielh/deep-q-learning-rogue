@@ -21,6 +21,7 @@ class Room:
         self.y2 = y+ h
         self.torchChance = random.randint(0, 100)
         self.spawnChance = random.randint(0, 100)
+        self.hasTorch = False
 
     def center(self):
         center_x = (self.x1 + self.x2) // 2
@@ -51,3 +52,14 @@ class Room:
                     grid[y][x] = WALL
                 else:
                     grid[y][x] = FLOOR
+
+    def contains(self, x, y):
+        return self.x1 <= x <= self.x2 and self.y1 <= y <= self.y2
+    
+    def hasDoor(self, grid):
+        for x in range(self.x1, self.x2):
+            for y in range(self.y1, self.y2):
+                if grid[y][x] == DOOR:
+                    return True
+                
+        return False
