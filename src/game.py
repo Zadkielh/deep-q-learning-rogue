@@ -4,11 +4,17 @@ import random
 from objects import tiles
 from objects import entities as ent
 from objects import enemies as enm
+from objects import items as itm
 
 # Constants
 WIDTH = 1600
 HEIGHT = 900
 TILESIZE = 20
+
+HUD_SIZE = 100
+
+game_area_height = HEIGHT
+
 GRIDWIDTH = WIDTH // TILESIZE
 GRIDHEIGHT = HEIGHT // TILESIZE
 
@@ -25,6 +31,8 @@ BLUE = (0,0,255)
 RED = (255,0,0)
 GREEN = (0,255,0)
 
+OUTLINE_COLOR = (255, 255, 255)
+
 
 ENEMY_TIER_1 = [
     ent.GOBLIN,
@@ -33,17 +41,6 @@ ENEMY_TIER_1 = [
     ent.SKELETON_BOW,
     ent.SKELETON_SWORD_SHIELD,
     ent.SKELETON_UNARMED,
-    ##### Test
-    ent.SKELETON_KNIGHT,
-    ent.SKELETON_MAGE,
-    ent.GHOST,
-    ent.GHOUL,
-    ent.ORC,
-    ent.ORC_BOW,
-    ent.ORC_BRUTE,
-    ent.OGRE,
-    ent.OGRE_ARMORED,
-    ent.OGRE_BERSERKER
 ]
 
 ENEMY_TIER_2 = [
@@ -51,7 +48,51 @@ ENEMY_TIER_2 = [
     ent.SKELETON_ARMORED,
     ent.SKELETON_BOW,
     ent.SKELETON_SWORD_SHIELD,
+    ent.SKELETON_MAGE,
+    ent.OGRE,
+    ent.OGRE_ARMORED,
+    ent.ORC,
+    ent.ORC_BOW,
 ]
+
+ENEMY_TIER_3 = [
+    ent.SKELETON_ARMORED,
+    ent.SKELETON_MAGE,
+    ent.OGRE,
+    ent.OGRE_ARMORED,
+    ent.ORC,
+    ent.ORC_BOW,
+    ent.SKELETON_KNIGHT,
+    ent.GHOST,
+    ent.GHOUL,
+    ent.ORC_BRUTE,
+    ent.OGRE_BERSERKER
+]
+
+class NotificationManager:
+    def __init__(self, font):
+        self.font = font
+        self.notifications = []
+        self.duration = 10 * 1000 # x1000 for seconds
+
+    def add_notification(self, message):
+        timestamp = pygame.time.get_ticks()  # Get the current time
+        self.notifications.append((message, timestamp))
+
+    def update(self):
+        current_time = pygame.time.get_ticks()
+        self.notifications = [
+            (message, timestamp) for message, timestamp in self.notifications
+            if current_time - timestamp < self.duration
+        ]
+
+    def draw(self, screen):
+        y_offset = 10
+        for message, _ in self.notifications:
+            text = self.font.render(message, True, WHITE)
+            screen.blit(text, (10, y_offset))
+            y_offset += text.get_height() + 5
+
 
 def draw_name_tag(screen, font, entity, offset_y=10):
     text = font.render(entity.name, True, WHITE)
@@ -60,7 +101,11 @@ def draw_name_tag(screen, font, entity, offset_y=10):
     screen.blit(text, (entity.x*20 + 10 - text_width // 2, entity.y*20 - offset_y))
 
 def GetEnemyFromTier(tier):
-    if tier < 2:
+    if tier >= 3:
+        return random.choice(ENEMY_TIER_3)
+    elif tier >= 2:
+        return random.choice(ENEMY_TIER_2)
+    else:
         return random.choice(ENEMY_TIER_1)
     
 def CreateEnemy(tier, room, grid, entities):
@@ -277,7 +322,7 @@ def place_entities(grid, rooms, floor, player, list):
 
     # Select difficulty level
     EnemyTier = min(1, 1 * (floor / 5))
-    MaxEnemiesPerRoom = 3 + int(EnemyTier)
+    MaxEnemiesPerRoom = 1 + int(EnemyTier)
 
     for room in rooms:
         # Spawn Enemies
@@ -338,15 +383,97 @@ def draw_game_based_on_visibility(screen, map_grid, visibility_grid, entities_li
                 pygame.draw.rect(screen, entity.color, pygame.Rect(entity.x*20, entity.y*20, 20, 20))
                 draw_name_tag(screen, font, entity)
 
+def draw_hud(screen, font, player):
+    hud_rect = pygame.Rect(0, game_area_height, WIDTH, HUD_SIZE)
+
+    outline_thickness = 3
+    outline_rect = pygame.Rect(
+        hud_rect.x - outline_thickness,
+        hud_rect.y - outline_thickness,
+        hud_rect.width + 2 * outline_thickness,
+        hud_rect.height + 2 * outline_thickness,
+    )
+    pygame.draw.rect(screen, OUTLINE_COLOR, outline_rect)
+
+    pygame.draw.rect(screen, BLACK, hud_rect)
+
+    health_text = font.render(f'Health: {player.health} / {player.maxHealth}', True, WHITE)
+    health_rect = health_text.get_rect(topleft=(10, game_area_height + 10))
+
+    level_text = font.render(f'Level: {player.level}', True, WHITE)
+    level_rect = level_text.get_rect(topleft=(10, game_area_height + 40))
+
+    xp_text = font.render(f'XP: {player.xp} / {player.maxXp}', True, WHITE)
+    xp_rect = level_text.get_rect(topleft=(10, game_area_height + 70))
+
+    ####
+
+    armor_text = font.render(f'Armor: {player.GetArmor()}', True, WHITE)
+    armor_rect = armor_text.get_rect(topleft=(210, game_area_height + 10))
+
+    sight = "Normal"
+    if player.viewDistance == ent.VIEW_DISTANCE_MEDIUM:
+        sight = "Great"
+    elif player.viewDistance == ent.VIEW_DISTANCE_HIGH:
+        sight = "Perfect"
+    elif player.viewDistance == ent.VIEW_DISTANCE_MAX:
+        sight = "All Seeing"
+    view_text = font.render(f'Sight: {sight}', True, WHITE)
+    view_rect = view_text.get_rect(topleft=(210, game_area_height + 40))
+
+    damage_text = font.render(f'Damage: {player.GetDamage()}', True, WHITE)
+    damage_rect = damage_text.get_rect(topleft=(210, game_area_height + 70))
+
+    ###
+
+    str_text = font.render(f'Strength: {player.strength}', True, WHITE)
+    str_rect = str_text.get_rect(topleft=(410, game_area_height + 10))
+
+    dex_text = font.render(f'Dexterity: {player.dexterity}', True, WHITE)
+    dex_rect = dex_text.get_rect(topleft=(410, game_area_height + 40))
+
+    agi_text = font.render(f'Agility: {player.agility}', True, WHITE)
+    agi_rect = agi_text.get_rect(topleft=(410, game_area_height + 70))
+
+    screen.blit(health_text, health_rect)
+    screen.blit(level_text, level_rect)
+    screen.blit(xp_text, xp_rect)
+    #
+    screen.blit(armor_text, armor_rect)
+    screen.blit(view_text, view_rect)
+    screen.blit(damage_text, damage_rect)
+    #
+    screen.blit(str_text, str_rect)
+    screen.blit(dex_text, dex_rect)
+    screen.blit(agi_text, agi_rect)
+
+
+def draw_inventory(screen, font, player):
+    inventory_text = font.render("Inventory:", True, WHITE)
+    screen.blit(inventory_text, (710, game_area_height + 10))
+    y_offset = game_area_height + 25
+    x_offset = 710
+    for i, item in enumerate(player.inventory):
+        if y_offset > HEIGHT + HUD_SIZE - 20:
+            x_offset += 100
+            y_offset = game_area_height + 25
+         
+        item_text = font.render(f"{i} - {item.name}", True, WHITE)
+        screen.blit(item_text, (x_offset, y_offset))
+        y_offset += item_text.get_height() + 5
+
+
 # Initiliaze Game
 pygame.init()
 
 # Set Screen Size
-screen = pygame.display.set_mode((WIDTH,HEIGHT))
+screen = pygame.display.set_mode((WIDTH,HEIGHT + HUD_SIZE))
 pygame.display.set_caption('Rogue-like')
 
 # Font
 font = pygame.font.Font(None, 14)
+hud_font = pygame.font.Font(None, 24)
+noti_font = pygame.font.Font(None, 18)
 
 # Game Loop
 def Engine():
@@ -354,9 +481,23 @@ def Engine():
     # Engine Condition
     running = True
     clock = pygame.time.Clock()
+    notification_manager = NotificationManager(hud_font)
     floor = 1
     map_grid, rooms = make_map(30, 6, 10)
     player = ent.Player(0, 0)
+
+    # Give starter items to player
+    weapon = itm.IronSword(0,0)
+    weapon.interact(player, notification_manager)
+    player.Equip(weapon, notification_manager)
+
+    armor = itm.ChainMail(0,0)
+    armor.interact(player, notification_manager)
+    player.Equip(armor, notification_manager)
+
+    food = itm.Food(0,0)
+    food.interact(player, notification_manager)
+
     place_statics(map_grid, rooms, floor)
 
     entities_list = []
@@ -365,10 +506,19 @@ def Engine():
 
     visibility_grid = [[False for _ in range(len(map_grid[0]))] for _ in range(len(map_grid))]
 
+    notification_manager.add_notification(f"Your descent starts..")
+
+    open_inventory = False
+    input_text = ''
+    confirmation_state = False
+    selected_item_index = None
+    
     while running:
         
         update_vision_normal(player.x, player.y, map_grid, visibility_grid, player.viewDistance)
         update_vision_lit_rooms(player.x, player.y, rooms, visibility_grid)
+
+        
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -377,20 +527,56 @@ def Engine():
             if event.type == pygame.KEYDOWN:
                 playerUsedTurn = False
                 if event.key == pygame.K_LEFT:
-                    player.move(-1, 0, map_grid, entities_list)
+                    player.move(-1, 0, map_grid, entities_list, notification_manager)
                     playerUsedTurn = True
                 elif event.key == pygame.K_RIGHT:
-                    player.move(1, 0, map_grid, entities_list)
+                    player.move(1, 0, map_grid, entities_list, notification_manager)
                     playerUsedTurn = True
                 elif event.key == pygame.K_UP:
-                    player.move(0, -1, map_grid, entities_list)
+                    player.move(0, -1, map_grid, entities_list, notification_manager)
                     playerUsedTurn = True
                 elif event.key == pygame.K_DOWN:
-                    player.move(0, 1, map_grid, entities_list)
+                    player.move(0, 1, map_grid, entities_list, notification_manager)
                     playerUsedTurn = True
 
                 if event.key == pygame.K_q:
                     player.viewDistance = ent.VIEW_DISTANCE_MAX
+
+                if event.key == pygame.K_i:
+                    open_inventory = not open_inventory
+                    input_text = ''
+                    confirmation_state = False
+                    selected_item_index = None
+                elif open_inventory and not confirmation_state:
+                    if event.key == pygame.K_RETURN:
+                        if input_text.isdigit():
+                            index = int(input_text)
+                            if 0 <= index < len(player.inventory):
+                                selected_item_index = index
+                                confirmation_state = True
+                                input_text = ''  # Reset input text for yes/no input
+                        input_text = ''
+                    elif event.key == pygame.K_BACKSPACE:
+                        input_text = input_text[:-1]
+                    else:
+                        input_text += event.unicode
+                
+                elif open_inventory and confirmation_state:
+                    if event.key == pygame.K_y:
+                        # Handle using the item
+                        selected_item = player.inventory[selected_item_index]
+                        
+                        if selected_item.canWield:
+                            player.Equip(selected_item, notification_manager)
+                        else:
+                            selected_item.OnUse(player, notification_manager)
+
+                        confirmation_state = False
+                        input_text = ''
+                    elif event.key == pygame.K_n:
+                        # Cancel the use of the item
+                        confirmation_state = False
+                        input_text = ''
 
                 if playerUsedTurn:
                     for id, entity in enumerate(entities_list):
@@ -400,12 +586,28 @@ def Engine():
                     # After the player moves, enemies take their turn
                     enemies = [ent for ent in entities_list if ent.isHostile]
                     for enemy in enemies:
-                        enemy.chooseAction(map_grid, player, entities_list)
+                        enemy.chooseAction(map_grid, player, entities_list, notification_manager)
 
                     
-        
+        notification_manager.update()
+
         screen.fill(BLACK)
         draw_game_based_on_visibility(screen, map_grid, visibility_grid, entities_list)
+        draw_hud(screen, hud_font, player)
+        notification_manager.draw(screen)
+        if open_inventory:
+            draw_inventory(screen, font, player)
+            if not confirmation_state:
+                input_prompt = noti_font.render("Select item: ", True, WHITE)
+                input_text_surface = noti_font.render(input_text, True, WHITE)
+                screen.blit(input_prompt, (10, HEIGHT - 30))
+                screen.blit(input_text_surface, (150, HEIGHT - 30))
+            else:
+                if player.inventory[selected_item_index].canWield:
+                    confirmation_prompt = noti_font.render(f"Wield item {player.inventory[selected_item_index].name}? (y/n)", True, WHITE)
+                else: 
+                    confirmation_prompt = noti_font.render(f"Use item {player.inventory[selected_item_index].name}? (y/n)", True, WHITE)
+                screen.blit(confirmation_prompt, (10, HEIGHT - 30))
 
         pygame.display.flip()
         clock.tick(60)

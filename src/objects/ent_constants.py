@@ -1,5 +1,12 @@
 # Constants
 PLAYER = 0
+
+SLOT_HEAD = 0
+SLOT_BODY = 1
+SLOT_LHAND = 2
+SLOT_RHAND = 3
+SLOT_BELT = 4
+SLOT_TWOHAND = 5
 # Enemy Constants
 # --------------------------------------------------------
 GOBLIN = 1
@@ -27,6 +34,14 @@ OGRE_WARLORD = 19
 NECROMANCER = 20
 # --------------------------------------------------------
 
+
+# Item Constants
+# --------------------------------------------------------
+ITEM = 1001
+ITEM_IRON_SWORD = 1002
+ITEM_CHAIN_MAIL = 1003
+ITEM_FOOD = 1004
+
 # View Distance
 VIEW_DISTANCE_LOW = (-1,2)
 VIEW_DISTANCE_MEDIUM = (-2,3)
@@ -35,5 +50,24 @@ VIEW_DISTANCE_MAX = (-100, 100)
 
 ENTITIES_COLLISION = [
     PLAYER,
-    GOBLIN
+    GOBLIN,
+    HOBGOBLIN,
+    SKELETON_UNARMED,
+    SKELETON_SWORD_SHIELD,
+    SKELETON_BOW,
+    SKELETON_ARMORED,
+    SKELETON_MAGE,
+    OGRE,
+    OGRE_ARMORED,
+    ORC,
+    ORC_BOW,
+    GHOUL,
+    ORC_BRUTE,
+    OGRE_BERSERKER,
+    SKELETON_KNIGHT,
+    GHOST,
+    DEATH_KNIGHT,
+    ORC_WARLORD,
+    OGRE_WARLORD,
+    NECROMANCER,
 ]
