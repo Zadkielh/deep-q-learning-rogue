@@ -29,30 +29,35 @@ def create_tunnel_to_room(grid, room, target_room):
 
     DIR_X = 1
     DIR_Y = 0
-    
-    def place_door(x, y, direction, step):
-        # Check if there is a floor behind or infront of the wall
 
+    def adjacent_door(x, y):
         adjacent_door = (grid[y-1][x] == tiles.DOOR if y > 0 else False) or \
                         (grid[y+1][x] == tiles.DOOR if y < len(grid) - 1 else False) or \
                         (grid[y][x-1] == tiles.DOOR if x > 0 else False) or \
                         (grid[y][x+1] == tiles.DOOR if x < len(grid[0]) - 1 else False)
         
-        if direction:
+        return adjacent_door
+    
+    def place_door(x, y, direction, step, force=False):
+        # Check if there is a floor behind or infront of the wall
+        if direction == DIR_X:
             if grid[y][x+step] == tiles.FLOOR or grid[y][x-step] == tiles.FLOOR:
-                if not adjacent_door:
+                if not adjacent_door(x, y) and not force:
                     grid[y][x] = tiles.DOOR
                     return True
         else:
             if grid[y+step][x] == tiles.FLOOR or grid[y-step][x] == tiles.FLOOR:
-                if not adjacent_door:
+                if not adjacent_door(x, y) and not force:
                     grid[y][x] = tiles.DOOR
                     return True
 
         return False
 
     direction = True if abs(end_x - start_x) > abs(end_y - start_y) else False # True = Horizontal | False = Vertical
-    while abs(start_x) < abs(end_x) or abs(start_y) < abs(end_y):
+    i = 0
+    while start_x != end_x or start_y != end_y:
+        i += 1
+        #print(i, start_x, end_x, start_y, end_y, direction)
         if direction:
             if start_x == end_x: 
                 direction = False
@@ -65,20 +70,53 @@ def create_tunnel_to_room(grid, room, target_room):
                 door_placed = place_door(start_x, start_y, DIR_X, step)
                 if not door_placed:
                     # We need to move in another direction
-                    if grid[start_y+1][start_x] == tiles.WALL:
-                        start_y += 1
-                        start_x -= step
-                        if grid[start_y][start_x] == tiles.VOID:
-                            grid[start_y][start_x] = tiles.TUNNEL
-
-                    elif grid[start_y-1][start_x] == tiles.WALL:
-                        start_y -= 1
-                        start_x -= step
-                        if grid[start_y][start_x] == tiles.VOID:
-                            grid[start_y][start_x] = tiles.TUNNEL
+                    if start_y + 1 < len(grid) and grid[start_y + 1][start_x] == tiles.WALL:
+                        if grid[start_y + 1][start_x + step] == tiles.WALL: # Likely a corner
+                            # We need to make an L around the corner
+                            start_y += 1
+                            if grid[start_y][start_x] == tiles.VOID:
+                                grid[start_y][start_x] = tiles.TUNNEL
+                            start_y += 1
+                            if grid[start_y][start_x] == tiles.VOID:
+                                grid[start_y][start_x] = tiles.TUNNEL
+                            start_x += step
+                            if grid[start_y][start_x] == tiles.VOID:
+                                grid[start_y][start_x] = tiles.TUNNEL
+                            start_x += step
+                            if grid[start_y][start_x] == tiles.VOID:
+                                grid[start_y][start_x] = tiles.TUNNEL
+                        elif adjacent_door(start_x, start_y):
+                            place_door(start_x, start_y, DIR_X, step, True)
+                        else:
+                            start_y += 1
+                            start_x -= step
+                            if grid[start_y][start_x] == tiles.VOID:
+                                grid[start_y][start_x] = tiles.TUNNEL
+                    elif start_y - 1 >= 0 and grid[start_y - 1][start_x] == tiles.WALL:
+                        if grid[start_y - 1][start_x + step] == tiles.WALL: # Likely a corner
+                            # We need to make an L around the corner
+                            start_y -= 1
+                            if grid[start_y][start_x] == tiles.VOID:
+                                grid[start_y][start_x] = tiles.TUNNEL
+                            start_y -= 1
+                            if grid[start_y][start_x] == tiles.VOID:
+                                grid[start_y][start_x] = tiles.TUNNEL
+                            start_x += step
+                            if grid[start_y][start_x] == tiles.VOID:
+                                grid[start_y][start_x] = tiles.TUNNEL
+                            start_x += step
+                            if grid[start_y][start_x] == tiles.VOID:
+                                grid[start_y][start_x] = tiles.TUNNEL
+                        elif adjacent_door(start_x, start_y):
+                            place_door(start_x, start_y, DIR_X, step, True)
+                        else:
+                            start_y -= 1
+                            start_x -= step
+                            if grid[start_y][start_x] == tiles.VOID:
+                                grid[start_y][start_x] = tiles.TUNNEL
             start_x += step
 
-        elif not direction:
+        else:
             if start_y == end_y: 
                 direction = True
                 continue
@@ -90,20 +128,59 @@ def create_tunnel_to_room(grid, room, target_room):
                 door_placed = place_door(start_x, start_y, DIR_Y, step)
                 if not door_placed:
                     # We need to move in another direction
-                    if grid[start_y][start_x+1] == tiles.WALL:
-                        start_x += 1
-                        start_y -= step
-                        if grid[start_y][start_x] == tiles.VOID:
-                            grid[start_y][start_x] = tiles.TUNNEL
-                            
-                    elif grid[start_y][start_x-1] == tiles.WALL:
-                        start_x -= 1
-                        start_y -= step
-                        if grid[start_y][start_x] == tiles.VOID:
-                            grid[start_y][start_x] = tiles.TUNNEL
+                    if start_x + 1 < len(grid[0]) and grid[start_y][start_x + 1] == tiles.WALL:
+                        if grid[start_y + step][start_x + 1] == tiles.WALL: # Likely a corner
+                            # We need to make an L around the corner
+                            start_x += 1
+                            if grid[start_y][start_x] == tiles.VOID:
+                                grid[start_y][start_x] = tiles.TUNNEL
+                            start_x += 1
+                            if grid[start_y][start_x] == tiles.VOID:
+                                grid[start_y][start_x] = tiles.TUNNEL
+                            start_y += step
+                            if grid[start_y][start_x] == tiles.VOID:
+                                grid[start_y][start_x] = tiles.TUNNEL
+                            start_y += step
+                            if grid[start_y][start_x] == tiles.VOID:
+                                grid[start_y][start_x] = tiles.TUNNEL
+                        elif adjacent_door(start_x, start_y):
+                            place_door(start_x, start_y, DIR_Y, step, True)
+                        else:
+                            start_x += 1
+                            start_y -= step
+                            if grid[start_y][start_x] == tiles.VOID:
+                                grid[start_y][start_x] = tiles.TUNNEL
+                    elif start_x - 1 >= 0 and grid[start_y][start_x - 1] == tiles.WALL:
+                        if grid[start_y + step][start_x - 1] == tiles.WALL: # Likely a corner
+                            # We need to make an L around the corner
+                            start_x -= 1
+                            if grid[start_y][start_x] == tiles.VOID:
+                                grid[start_y][start_x] = tiles.TUNNEL
+                            start_x -= 1
+                            if grid[start_y][start_x] == tiles.VOID:
+                                grid[start_y][start_x] = tiles.TUNNEL
+                            start_y += step
+                            if grid[start_y][start_x] == tiles.VOID:
+                                grid[start_y][start_x] = tiles.TUNNEL
+                            start_y += step
+                            if grid[start_y][start_x] == tiles.VOID:
+                                grid[start_y][start_x] = tiles.TUNNEL
+                        elif adjacent_door(start_x, start_y):
+                            # Force a door here
+                            place_door(start_x, start_y, DIR_Y, step, True)
+                        else:
+                            start_x -= 1
+                            start_y -= step
+                            if grid[start_y][start_x] == tiles.VOID:
+                                grid[start_y][start_x] = tiles.TUNNEL
             
             start_y += step
             
+        if i > 1000:  # Arbitrary large number to prevent infinite loops
+            print("Infinite loop detected, breaking out of the loop.", start_x, end_x, start_y, end_y, direction)
+            grid[start_y][start_x] = tiles.DEBUG
+            grid[end_y][end_x] = tiles.DEBUG
+            break
 
 
 
@@ -182,15 +259,18 @@ def update_vision_lit_rooms(player_x, player_y, rooms, visibility_grid):
 
 def draw_tile(x, y, grid, screen):
     rect = pygame.Rect(x*TILESIZE, y*TILESIZE, TILESIZE, TILESIZE)
-    if grid[y][x] == tiles.FLOOR:
+    current_tile = grid[y][x]
+    if current_tile == tiles.FLOOR:
         pygame.draw.rect(screen, WHITE, rect)
-    elif grid[y][x] == tiles.TUNNEL:
+    elif current_tile == tiles.DEBUG:
+        pygame.draw.rect(screen, RED, rect)
+    elif current_tile == tiles.TUNNEL:
         pygame.draw.rect(screen, DARK_GREY, rect)
-    elif grid[y][x] == tiles.WALL:
+    elif current_tile == tiles.WALL:
         pygame.draw.rect(screen, DARK_BROWN, rect)
-    elif grid[y][x] == tiles.WALL_TORCH:
+    elif current_tile == tiles.WALL_TORCH:
         pygame.draw.rect(screen, ORANGE, rect)
-    elif grid[y][x] == tiles.DOOR:
+    elif current_tile == tiles.DOOR:
         pygame.draw.rect(screen, BROWN, rect)
     else:
         pygame.draw.rect(screen, BLACK, rect)

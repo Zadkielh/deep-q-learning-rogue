@@ -1,6 +1,7 @@
 import random
 
 # Identifiers
+DEBUG = -1
 VOID = 0
 FLOOR = 1
 WALL = 2
