@@ -1,65 +1,25 @@
 from objects import tiles
+from objects.ent_constants import *
 import random
-# Constants
-PLAYER = 0
-GOBLIN = 1
 
-# View Distance
-VIEW_DISTANCE_LOW = (-1,2)
-VIEW_DISTANCE_MEDIUM = (-2,3)
-VIEW_DISTANCE_HIGH = (-3,4)
-VIEW_DISTANCE_MAX = (-100, 100)
-
-ENTITIES_COLLISION = [
-    PLAYER,
-    GOBLIN
-]
-
-#--------------------------------------------#
-
-ENEMY_TIER_1 = [
-    GOBLIN
-]
-
-def GetEnemyFromTier(tier):
-    if tier < 2:
-        return random.choice(ENEMY_TIER_1)
-
-def CreateEnemy(tier, room, grid, entities):
-    x, y = room.center()
-    x, y = PlaceEnemy(x, y, grid, entities)
-    type = GetEnemyFromTier(tier)
-    if type == GOBLIN:
-        enemy = Goblin(x,y)
-
-
-    return enemy
 
 def IsTileBlocked(x, y, grid, entities, caller=None):
-    for type in tiles.BLOCKED_TILES:
-        if grid[y][x] == type:
-            return True, type
+    if grid[y][x] in tiles.BLOCKED_TILES:
+        return True, grid[y][x]
     
     for entity in entities:
         if entity is caller:
             continue
-        
-        if entity.x == x and entity.y == y:
-            for collision in ENTITIES_COLLISION:
-                if entity.type == collision:
-                    return True, entity
-        
-
+        if entity.x == x and entity.y == y and entity.type in ENTITIES_COLLISION:
+            return True, entity
     return False, None
 
 def PlaceEnemy(x, y, grid, entities):
-    if IsTileBlocked(x, y, grid, entities):
-        for x2 in range(-5, 5):
-            for y2 in range(-5, 5):
-                if not IsTileBlocked(x + x2, y + y2, grid, entities):
-                    x += x2
-                    y += y2
-
+    if IsTileBlocked(x, y, grid, entities)[0]:
+        for dx in range(-5, 6):
+            for dy in range(-5, 6):
+                if not IsTileBlocked(x + dx, y + dy, grid, entities)[0]:
+                    return x + dx, y + dy
     return x, y
 
 class Entity:
@@ -68,7 +28,12 @@ class Entity:
         self.y = y
         self.isAlive = True
         self.health = 1
+        self.armor = 0
+        self.strength = 0
+        self.dexterity = 0
+        self.agility = 0
         self.isHostile = False
+        self.viewDistance = VIEW_DISTANCE_LOW
 
     def move(self, dx, dy, grid, entities):
         blocked, type = IsTileBlocked(self.x + dx, self.y + dy, grid, entities)
@@ -88,9 +53,9 @@ class Entity:
         pass
 
 class Player(Entity):
-    def __init__(self, x, y, name):
+    def __init__(self, x, y, name="Hero"):
         super().__init__(x, y)
-        self.playerName = name
+        self.name = name
         self.health = 10
         self.type = PLAYER
         self.color = (0,0,255)
@@ -101,6 +66,7 @@ class Enemy(Entity):
         super().__init__(x, y)
         self.isHostile = True
         self.color = (255,0,0)
+        self.viewDistance = VIEW_DISTANCE_MEDIUM
 
     def chase(self, target_x, target_y, grid, entities):
         step_x = step_y = 0
@@ -135,8 +101,9 @@ class Enemy(Entity):
     def canDetectPlayer(self, player):
         
         # Check tiles in a 5x5 radius around the entity
-        for dy in range(-5, 5):
-            for dx in range(-5, 5):
+        lbound, ubound = self.viewDistance
+        for dy in range(lbound, ubound):
+            for dx in range(lbound, ubound):
                 ny, nx = max(0, self.y + dy), max(0, self.x + dx)
                 #print(nx, ny, player.x, player.y)
 
@@ -157,13 +124,6 @@ class Enemy(Entity):
 
     def interact(self, caller):
         self.performCombatRound(caller)
-
-class Goblin(Enemy):
-    def __init__(self, x, y):
-        super().__init__(x, y)
-        self.health = 5
-        self.type = GOBLIN
-        self.color = (0,255,0)
 
 class Friendly(Entity):
     def __init__(self, x, y):

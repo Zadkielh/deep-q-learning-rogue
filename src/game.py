@@ -2,7 +2,8 @@ import pygame
 import sys
 import random
 from objects import tiles
-from objects import entities
+from objects import entities as ent
+from objects import enemies as enm
 
 # Constants
 WIDTH = 1600
@@ -18,10 +19,59 @@ DARK_GREY = (50,50,50)
 GREY = (100,100,100)
 BROWN = (200,200,150)
 DARK_BROWN = (150,150,100)
+ALMOND = (234, 221, 202)
 ORANGE = (255,200,100)
 BLUE = (0,0,255)
 RED = (255,0,0)
 GREEN = (0,255,0)
+
+
+ENEMY_TIER_1 = [
+    ent.GOBLIN,
+    ent.HOBGOBLIN,
+    ent.SKELETON_ARMORED,
+    ent.SKELETON_BOW,
+    ent.SKELETON_SWORD_SHIELD,
+    ent.SKELETON_UNARMED,
+    ##### Test
+    ent.SKELETON_KNIGHT,
+    ent.SKELETON_MAGE,
+    ent.GHOST,
+    ent.GHOUL,
+    ent.ORC,
+    ent.ORC_BOW,
+    ent.ORC_BRUTE,
+    ent.OGRE,
+    ent.OGRE_ARMORED,
+    ent.OGRE_BERSERKER
+]
+
+ENEMY_TIER_2 = [
+    ent.HOBGOBLIN,
+    ent.SKELETON_ARMORED,
+    ent.SKELETON_BOW,
+    ent.SKELETON_SWORD_SHIELD,
+]
+
+def draw_name_tag(screen, font, entity, offset_y=10):
+    text = font.render(entity.name, True, WHITE)
+    text_width = text.get_width()
+    text_rect = text.get_rect(center=(entity.x*20 + 10, entity.y*20 - offset_y))
+    screen.blit(text, (entity.x*20 + 10 - text_width // 2, entity.y*20 - offset_y))
+
+def GetEnemyFromTier(tier):
+    if tier < 2:
+        return random.choice(ENEMY_TIER_1)
+    
+def CreateEnemy(tier, room, grid, entities):
+    x, y = room.center()
+    x, y = ent.PlaceEnemy(x, y, grid, entities)
+    enemy_type = GetEnemyFromTier(tier)
+    enemy_class = enm.ENEMY_CLASSES.get(enemy_type)
+    if enemy_class:
+        enemy = enemy_class(x, y)
+        return enemy
+    return None
 
 def create_tunnel_to_room(grid, room, target_room):
     start_x, start_y = room.center()
@@ -227,17 +277,19 @@ def place_entities(grid, rooms, floor, player, list):
 
     # Select difficulty level
     EnemyTier = min(1, 1 * (floor / 5))
-    MaxEnemiesPerRoom = 1 + int(EnemyTier)
+    MaxEnemiesPerRoom = 3 + int(EnemyTier)
 
     for room in rooms:
         # Spawn Enemies
         spawnMod = min(20 + (1*floor), 100)
+        if room.contains(player.x, player.y):
+            spawnMod = 0
         if spawnMod > room.spawnChance:
             # Place Enemies
             enemyCount = random.randint(1, MaxEnemiesPerRoom)
             for _ in range(enemyCount):
                 # Select Type
-                enemy = entities.CreateEnemy(EnemyTier, room, grid, list)
+                enemy = CreateEnemy(EnemyTier, room, grid, list)
                 list.append(enemy)
 
     return list
@@ -261,7 +313,7 @@ def draw_tile(x, y, grid, screen):
     rect = pygame.Rect(x*TILESIZE, y*TILESIZE, TILESIZE, TILESIZE)
     current_tile = grid[y][x]
     if current_tile == tiles.FLOOR:
-        pygame.draw.rect(screen, WHITE, rect)
+        pygame.draw.rect(screen, ALMOND, rect)
     elif current_tile == tiles.DEBUG:
         pygame.draw.rect(screen, RED, rect)
     elif current_tile == tiles.TUNNEL:
@@ -281,16 +333,20 @@ def draw_game_based_on_visibility(screen, map_grid, visibility_grid, entities_li
             if visibility_grid[y][x]:  # Only draw if the tile is visible
                 draw_tile(x, y, map_grid, screen)  # Implement drawing based on tile type
     # Draw player and enemies if they are in visible tiles
-    for ent in entities_list:
-            if visibility_grid[ent.y][ent.x]:
-                pygame.draw.rect(screen, ent.color, pygame.Rect(ent.x*20, ent.y*20, 20, 20))
+    for entity in entities_list:
+            if visibility_grid[entity.y][entity.x]:
+                pygame.draw.rect(screen, entity.color, pygame.Rect(entity.x*20, entity.y*20, 20, 20))
+                draw_name_tag(screen, font, entity)
 
 # Initiliaze Game
 pygame.init()
 
 # Set Screen Size
 screen = pygame.display.set_mode((WIDTH,HEIGHT))
-pygame.display.set_caption('Rogue')
+pygame.display.set_caption('Rogue-like')
+
+# Font
+font = pygame.font.Font(None, 14)
 
 # Game Loop
 def Engine():
@@ -300,7 +356,7 @@ def Engine():
     clock = pygame.time.Clock()
     floor = 1
     map_grid, rooms = make_map(30, 6, 10)
-    player = entities.Player(0, 0, "Player")
+    player = ent.Player(0, 0)
     place_statics(map_grid, rooms, floor)
 
     entities_list = []
@@ -334,7 +390,7 @@ def Engine():
                     playerUsedTurn = True
 
                 if event.key == pygame.K_q:
-                    player.viewDistance = entities.VIEW_DISTANCE_MAX
+                    player.viewDistance = ent.VIEW_DISTANCE_MAX
 
                 if playerUsedTurn:
                     for id, entity in enumerate(entities_list):
