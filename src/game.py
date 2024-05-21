@@ -7,8 +7,8 @@ from objects import enemies as enm
 from objects import items as itm
 
 # Constants
-WIDTH = 1600
-HEIGHT = 900
+WIDTH = 1000
+HEIGHT = 600
 TILESIZE = 20
 
 HUD_SIZE = 100
@@ -434,10 +434,10 @@ def draw_game_based_on_visibility(screen, map_grid, visibility_grid, entities_li
                 draw_tile(x, y, map_grid, screen)  # Implement drawing based on tile type
     # Draw player and enemies if they are in visible tiles
     for entity in entities_list:
-            if visibility_grid[entity.y][entity.x]:
-                pygame.draw.rect(screen, entity.color, pygame.Rect(entity.x*20, entity.y*20, 20, 20))
-                if not isinstance(entity, itm.Item):
-                    draw_name_tag(screen, font, entity)
+        if visibility_grid[entity.y][entity.x]:
+            pygame.draw.rect(screen, entity.color, pygame.Rect(entity.x * TILESIZE, entity.y * TILESIZE, TILESIZE, TILESIZE))
+            if not isinstance(entity, itm.Item):
+                draw_name_tag(screen, font, entity)
 
 def draw_hud(screen, font, player, floor):
     hud_rect = pygame.Rect(0, game_area_height, WIDTH, HUD_SIZE)
@@ -542,11 +542,11 @@ def NextLevel(player, floor, entities_list, notification_manager):
 
     return map_grid, rooms, entities_list, floor, visibility_grid
 
-# Initiliaze Game
+# Initialize Game
 pygame.init()
 
 # Set Screen Size
-screen = pygame.display.set_mode((WIDTH,HEIGHT + HUD_SIZE))
+screen = pygame.display.set_mode((WIDTH, HEIGHT + HUD_SIZE))
 pygame.display.set_caption('Rogue-like')
 
 # Font
@@ -556,162 +556,74 @@ noti_font = pygame.font.Font(None, 18)
 
 # Game Loop
 def Engine():
-
-    # Engine Condition
-    running = True
-    clock = pygame.time.Clock()
-    notification_manager = NotificationManager(hud_font)
-    floor = 1
-    map_grid, rooms = make_map(MAX_ROOMS, ROOM_SIZE_MIN, ROOM_SIZE_MAX)
-    player = ent.Player(0, 0)
+    engine_data = {}
+    engine_data['running'] = True
+    engine_data['clock'] = pygame.time.Clock()
+    engine_data['notification_manager'] = NotificationManager(hud_font)
+    engine_data['floor'] = 1
+    engine_data['map_grid'], engine_data['rooms'] = make_map(MAX_ROOMS, ROOM_SIZE_MIN, ROOM_SIZE_MAX)
+    engine_data['player'] = ent.Player(0, 0)
 
     # Give starter items to player
-    weapon = itm.IronSword(0,0)
-    player.interact(weapon, notification_manager)
-    player.Equip(weapon, notification_manager)
+    weapon = itm.IronSword(0, 0)
+    engine_data['player'].interact(weapon, engine_data['notification_manager'])
+    engine_data['player'].Equip(weapon, engine_data['notification_manager'])
 
-    armor = itm.ChainMail(0,0)
-    player.interact(armor, notification_manager)
-    player.Equip(armor, notification_manager)
+    armor = itm.ChainMail(0, 0)
+    engine_data['player'].interact(armor, engine_data['notification_manager'])
+    engine_data['player'].Equip(armor, engine_data['notification_manager'])
 
-    food = itm.Food(0,0)
-    player.interact(food, notification_manager)
+    food = itm.Food(0, 0)
+    engine_data['player'].interact(food, engine_data['notification_manager'])
 
-    entities_list = []
-    entities_list.append(player)
-    entities_list = place_entities(map_grid, rooms, floor, player, entities_list)
-    place_statics(map_grid, rooms, floor, player)
+    engine_data['entities_list'] = []
+    engine_data['entities_list'].append(engine_data['player'])
+    engine_data['entities_list'] = place_entities(engine_data['map_grid'], engine_data['rooms'], engine_data['floor'], engine_data['player'], engine_data['entities_list'])
+    place_statics(engine_data['map_grid'], engine_data['rooms'], engine_data['floor'], engine_data['player'])
 
-    visibility_grid = [[False for _ in range(len(map_grid[0]))] for _ in range(len(map_grid))]
+    engine_data['visibility_grid'] = [[False for _ in range(len(engine_data['map_grid'][0]))] for _ in range(len(engine_data['map_grid']))]
 
-    notification_manager.add_notification(f"Your descent starts..")
+    engine_data['notification_manager'].add_notification(f"Your descent starts..")
 
-    open_inventory = False
-    input_text = ''
-    confirmation_state = False
-    selected_item_index = None
-    player_died_check = False
-    player_died_timer = 0
+    return engine_data
+
+def step_game(engine_data, action):
+    player = engine_data['player']
+    playerUsedTurn = False
     
-    while running:
+    if action == 0:  # Up
+        player.move(0, -1, engine_data['map_grid'], engine_data['entities_list'], engine_data['notification_manager'])
+        playerUsedTurn = True
+    elif action == 1:  # Down
+        player.move(0, 1, engine_data['map_grid'], engine_data['entities_list'], engine_data['notification_manager'])
+        playerUsedTurn = True
+    elif action == 2:  # Left
+        player.move(-1, 0, engine_data['map_grid'], engine_data['entities_list'], engine_data['notification_manager'])
+        playerUsedTurn = True
+    elif action == 3:  # Right
+        player.move(1, 0, engine_data['map_grid'], engine_data['entities_list'], engine_data['notification_manager'])
+        playerUsedTurn = True
 
-        if not player.isAlive:
-            if not player_died_check:
-                player_died_timer = pygame.time.get_ticks()  # Get the current time
-                player_died_check = True
+    if playerUsedTurn:
+        for entity in engine_data['entities_list']:
+            if entity.isHostile:
+                entity.chooseAction(engine_data['map_grid'], player, engine_data['entities_list'], engine_data['notification_manager'])
+                
+    update_vision_normal(player.x, player.y, engine_data['map_grid'], engine_data['visibility_grid'], player.viewDistance)
+    update_vision_lit_rooms(player.x, player.y, engine_data['rooms'], engine_data['visibility_grid'])
 
-            visibility_grid = [[False for _ in range(len(map_grid[0]))] for _ in range(len(map_grid))]
-            open_inventory = False
-            input_text = ''
-            confirmation_state = False
-            selected_item_index = None
+    if not player.isAlive:
+        engine_data['running'] = False
 
-            if player_died_timer + 5*1000 < pygame.time.get_ticks():
-                running = False
-
-        else:    
+    if engine_data['map_grid'][player.y][player.x] == tiles.STAIRS:
+        # Go to next level
+        engine_data['map_grid'], engine_data['rooms'], engine_data['entities_list'], engine_data['floor'], engine_data['visibility_grid'] = NextLevel(player, engine_data['floor'], engine_data['entities_list'], engine_data['notification_manager'])
         
-            update_vision_normal(player.x, player.y, map_grid, visibility_grid, player.viewDistance)
-            update_vision_lit_rooms(player.x, player.y, rooms, visibility_grid)
+    return engine_data
 
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
-            
-                if event.type == pygame.KEYDOWN:
-                    playerUsedTurn = False
-                    if event.key == pygame.K_LEFT:
-                        player.move(-1, 0, map_grid, entities_list, notification_manager)
-                        playerUsedTurn = True
-                    elif event.key == pygame.K_RIGHT:
-                        player.move(1, 0, map_grid, entities_list, notification_manager)
-                        playerUsedTurn = True
-                    elif event.key == pygame.K_UP:
-                        player.move(0, -1, map_grid, entities_list, notification_manager)
-                        playerUsedTurn = True
-                    elif event.key == pygame.K_DOWN:
-                        player.move(0, 1, map_grid, entities_list, notification_manager)
-                        playerUsedTurn = True
-
-                    if event.key == pygame.K_q:
-                        player.viewDistance = ent.VIEW_DISTANCE_MAX
-
-                    if event.key == pygame.K_i:
-                        open_inventory = not open_inventory
-                        input_text = ''
-                        confirmation_state = False
-                        selected_item_index = None
-                    elif open_inventory and not confirmation_state:
-                        if event.key == pygame.K_RETURN:
-                            if input_text.isdigit():
-                                index = int(input_text)
-                                if 0 <= index < len(player.inventory):
-                                    selected_item_index = index
-                                    confirmation_state = True
-                                    input_text = ''  # Reset input text for yes/no input
-                            input_text = ''
-                        elif event.key == pygame.K_BACKSPACE:
-                            input_text = input_text[:-1]
-                        else:
-                            input_text += event.unicode
-                    
-                    elif open_inventory and confirmation_state:
-                        if event.key == pygame.K_y:
-                            # Handle using the item
-                            selected_item = player.inventory[selected_item_index]
-                            
-                            if selected_item.canWield:
-                                player.Equip(selected_item, notification_manager)
-                            else:
-                                selected_item.OnUse(player, selected_item_index, notification_manager)
-
-                            confirmation_state = False
-                            input_text = ''
-                        elif event.key == pygame.K_n:
-                            # Cancel the use of the item
-                            confirmation_state = False
-                            input_text = ''
-
-                    if playerUsedTurn:
-                        for id, entity in enumerate(entities_list):
-                            if not entity.isAlive:
-                                entities_list.pop(id)
-
-                        # Check if we moved onto a stairs tile
-                        if map_grid[player.y][player.x] == tiles.STAIRS:
-                            # Go to next level
-                            map_grid, rooms, entities_list, floor, visibility_grid = NextLevel(player, floor, entities_list, notification_manager)
-
-                        # After the player moves, enemies take their turn
-                        enemies = [ent for ent in entities_list if ent.isHostile]
-                        for enemy in enemies:
-                            enemy.chooseAction(map_grid, player, entities_list, notification_manager)
-
-                    
-        notification_manager.update()
-
-        screen.fill(BLACK)
-        draw_game_based_on_visibility(screen, map_grid, visibility_grid, entities_list)
-        draw_hud(screen, hud_font, player, floor)
-        notification_manager.draw(screen)
-        if open_inventory:
-            draw_inventory(screen, font, player)
-            if not confirmation_state:
-                input_prompt = noti_font.render("Select item: ", True, WHITE)
-                input_text_surface = noti_font.render(input_text, True, WHITE)
-                screen.blit(input_prompt, (10, HEIGHT - 30))
-                screen.blit(input_text_surface, (150, HEIGHT - 30))
-            else:
-                if player.inventory[selected_item_index].canWield:
-                    confirmation_prompt = noti_font.render(f"Wield item {player.inventory[selected_item_index].name}? (y/n)", True, WHITE)
-                else: 
-                    confirmation_prompt = noti_font.render(f"Use item {player.inventory[selected_item_index].name}? (y/n)", True, WHITE)
-                screen.blit(confirmation_prompt, (10, HEIGHT - 30))
-
-        pygame.display.flip()
-        clock.tick(60)
-
-Engine()
-
-pygame.quit()
-sys.exit()
+def render_game(engine_data):
+    screen.fill(BLACK)
+    draw_game_based_on_visibility(screen, engine_data['map_grid'], engine_data['visibility_grid'], engine_data['entities_list'])
+    draw_hud(screen, hud_font, engine_data['player'], engine_data['floor'])
+    engine_data['notification_manager'].draw(screen)
+    pygame.display.flip()
