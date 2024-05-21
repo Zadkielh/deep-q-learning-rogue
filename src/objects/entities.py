@@ -10,11 +10,19 @@ def IsTileBlocked(x, y, grid, entities, caller=None):
     for entity in entities:
         if entity is caller:
             continue
-        if entity.x == x and entity.y == y and entity.type in ENTITIES_COLLISION:
+        if entity.x == x and entity.y == y:
             return True, entity
     return False, None
 
 def PlaceEnemy(x, y, grid, entities):
+    if IsTileBlocked(x, y, grid, entities)[0]:
+        for dx in range(-5, 6):
+            for dy in range(-5, 6):
+                if not IsTileBlocked(x + dx, y + dy, grid, entities)[0]:
+                    return x + dx, y + dy
+    return x, y
+
+def PlaceItem(x, y, grid, entities):
     if IsTileBlocked(x, y, grid, entities)[0]:
         for dx in range(-5, 6):
             for dy in range(-5, 6):
@@ -77,6 +85,7 @@ class Entity:
     def Die(self, caller, notification_manager):
         notification_manager.add_notification(f"{self.name} has been slain by {caller.name}!")
         caller.xp += self.xpValue
+        self.isAlive = False
 
 class Item(Entity):
     def __init__(self, x, y, name="Item"):
@@ -87,6 +96,9 @@ class Item(Entity):
         self.color = (0,255,255)
 
         ###
+
+        self.spawnChance = 1
+        self.tier = 0
 
         self.canWield = False
 
@@ -100,11 +112,22 @@ class Item(Entity):
     def interact(self, caller, notification_manager):
         pass
 
+    def OnUse(self, caller, index, notification_manager):
+        self.removeFromInventory(caller, index)
+
     def addToInventory(self, caller, notification_manager):
         if isinstance(caller, Player):
             caller.inventory.append(self)
             notification_manager.add_notification(f"You picked up {self.name}.")
-        
+    
+    def removeFromInventory(self, caller, index):
+        if isinstance(caller, Player):
+            caller.inventory.pop(index)
+
+    @classmethod
+    def get_spawn_chance(cls):
+        return cls.spawnChance
+    
 class Player(Entity):
     def __init__(self, x, y, name="Hero"):
         super().__init__(x, y)
@@ -124,11 +147,12 @@ class Player(Entity):
             SLOT_BELT : None
         }
 
-        self.strength = 3
-        self.agility = 3
-        self.dexterity = 3
+        self.strength = 2
+        self.agility = 2
+        self.dexterity = 2
 
     def Equip(self, item, notification_manager):
+        if not item in self.inventory: return False
         if item.canWield:
             slot = item.slot
             if slot == SLOT_TWOHAND:
@@ -141,9 +165,11 @@ class Player(Entity):
 
                 self.equipped[slot] = item
                 notification_manager.add_notification(f"You have equipped {item.name}.")
+                return True
             else:
                 self.equipped[slot] = item
                 notification_manager.add_notification(f"You have equipped {item.name}.")
+                return True
 
     def StatSummary(self):
         print("Base Stats:", self.health, self.armor, self.strength, self.dexterity, self.agility, self.level, self.xp)
@@ -165,26 +191,52 @@ class Player(Entity):
             item.OnUse(self, notification_manager)
 
     def LevelUp(self, notification_manager):
-        self.level += 1
-        self.xp = 0
-        self.maxXp = self.level * 4
+        if self.xp >= self.maxXp:
+            self.level += 1
+            self.xp = 0
+            self.maxXp = self.level * 4
 
-        self.maxHealth = 5 + self.level * 5
-        self.health = self.maxHealth
+            self.maxHealth = 5 + self.level * 5
+            self.health = self.maxHealth
 
-        self.strength += 1
-        self.dexterity += 1
-        self.agility += 1
+            self.strength += 1
+            self.dexterity += 1
+            self.agility += 1
 
-        notification_manager.add_notification(f"You leveled up! You are now {self.level}")
+            notification_manager.add_notification(f"You leveled up! You are now {self.level}")
 
     def GetDamage(self):
         damage = self.strength
         for key in self.equipped:
             if self.equipped[key]:
                 damage += self.equipped[key].damage
+                damage += self.equipped[key].strength
 
         return damage
+    
+    def GetStrength(self):
+        str = self.strength
+        for key in self.equipped:
+            if self.equipped[key]:
+                str += self.equipped[key].strength
+
+        return str
+    
+    def GetDexterity(self):
+        dex = self.dexterity
+        for key in self.equipped:
+            if self.equipped[key]:
+                dex += self.equipped[key].dexterity
+
+        return dex
+    
+    def GetAgility(self):
+        agi = self.agility
+        for key in self.equipped:
+            if self.equipped[key]:
+                agi += self.equipped[key].agility
+
+        return agi
     
     def GetArmor(self):
         armor = self.armor
@@ -193,6 +245,28 @@ class Player(Entity):
                 armor += self.equipped[key].armor
 
         return armor
+    
+    def GetHitChance(self):
+        dex = self.dexterity
+        for key in self.equipped:
+            if self.equipped[key]:
+                dex += self.equipped[key].dexterity
+
+        return dex * 2
+    
+    def GetDodgeChance(self):
+        agi = self.agility
+        for key in self.equipped:
+            if self.equipped[key]:
+                agi += self.equipped[key].agility
+
+        return agi * 2
+    
+    def DoMitigation(self, damage):
+        return damage
+    
+    def DoDamageAdjustment(self, damage):
+        return damage
 
     def interact(self, caller, notification_manager):
         if isinstance(caller, Item):
@@ -233,6 +307,11 @@ class Player(Entity):
                 target.isAlive = False
                 target.Die(self, notification_manager)
                 self.LevelUp(notification_manager)
+
+    def Die(self, caller, notification_manager):
+        notification_manager.add_notification(f"You have perished!")
+        self.isAlive = False
+
         
 class Enemy(Entity):
     def __init__(self, x, y):
@@ -278,7 +357,6 @@ class Enemy(Entity):
         for dy in range(lbound, ubound):
             for dx in range(lbound, ubound):
                 ny, nx = max(0, self.y + dy), max(0, self.x + dx)
-                #print(nx, ny, player.x, player.y)
 
                 if player.x == nx and player.y == ny:
                     return True

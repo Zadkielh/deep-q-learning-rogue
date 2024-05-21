@@ -18,6 +18,10 @@ game_area_height = HEIGHT
 GRIDWIDTH = WIDTH // TILESIZE
 GRIDHEIGHT = HEIGHT // TILESIZE
 
+MAX_ROOMS = 30
+ROOM_SIZE_MIN = 6
+ROOM_SIZE_MAX = 10
+
 # Colors
 BLACK = (0,0,0)
 WHITE = (255,255,255)
@@ -30,6 +34,7 @@ ORANGE = (255,200,100)
 BLUE = (0,0,255)
 RED = (255,0,0)
 GREEN = (0,255,0)
+BLUE_GREY = ( 96, 125, 139 )
 
 OUTLINE_COLOR = (255, 255, 255)
 
@@ -118,6 +123,27 @@ def CreateEnemy(tier, room, grid, entities):
         return enemy
     return None
 
+def CreateItem(tier, room, grid, entities):
+    x, y = room.center()
+    x, y = ent.PlaceItem(x, y, grid, entities)
+
+    item_classes = list(itm.ITEM_CLASSES.values())
+    spawn_chances = [item_class.get_spawn_chance() for item_class in item_classes]
+
+    total_spawn_chance = sum(spawn_chances)
+
+    probabilities = [chance / total_spawn_chance for chance in spawn_chances]
+
+    item_class = random.choices(item_classes, probabilities)[0]
+    item = item_class(x, y)
+
+    while item.tier > tier:
+        item_class = random.choices(item_classes, probabilities)[0]
+        item = item_class(x, y)
+
+    return item
+
+
 def create_tunnel_to_room(grid, room, target_room):
     start_x, start_y = room.center()
     end_x, end_y = target_room.center()
@@ -152,7 +178,6 @@ def create_tunnel_to_room(grid, room, target_room):
     i = 0
     while start_x != end_x or start_y != end_y:
         i += 1
-        #print(i, start_x, end_x, start_y, end_y, direction)
         if direction:
             if start_x == end_x: 
                 direction = False
@@ -306,14 +331,35 @@ def make_map(max_rooms, room_min_size, room_max_size):
 
     return grid, rooms
 
-def place_statics(grid, rooms, floor):
+def place_statics(grid, rooms, floor, player):
     # Place Torches
     torchMod = 95 - (5*floor)
     for room in rooms:
         if torchMod > room.torchChance:
-            x, y = room.center()
+            x = random.choice(range(room.x1, room.x2))
+            y = random.choice(range(room.y1, room.y2))
+            while not room.contains(x, y):
+                x = random.choice(range(room.x1, room.x2))
+                y = random.choice(range(room.y1, room.y2))
+            
             grid[y][x] = tiles.WALL_TORCH
             room.hasTorch = True
+
+
+    # Pick a random room that the player doesn't start in
+    room = random.choice(rooms)
+    while room.contains(player.x, player.y):
+        room = random.choice(rooms)
+
+    # Pick a random position thats within the boundary of the room
+    x, y = room.center()
+    x = random.choice(range(x-1, x+1))
+    y = random.choice(range(y-1, y+1))
+    
+    # Place Stairs
+    grid[y][x] = tiles.STAIRS
+
+
 
 def place_entities(grid, rooms, floor, player, list):
     # Place Player
@@ -336,6 +382,13 @@ def place_entities(grid, rooms, floor, player, list):
                 # Select Type
                 enemy = CreateEnemy(EnemyTier, room, grid, list)
                 list.append(enemy)
+
+        # Spawn Items
+        itemSpawnMod = 20
+        if itemSpawnMod > random.randint(0, 100):
+            item = CreateItem(EnemyTier, room, grid, list)
+            list.append(item)
+
 
     return list
 
@@ -369,6 +422,8 @@ def draw_tile(x, y, grid, screen):
         pygame.draw.rect(screen, ORANGE, rect)
     elif current_tile == tiles.DOOR:
         pygame.draw.rect(screen, BROWN, rect)
+    elif current_tile == tiles.STAIRS:
+        pygame.draw.rect(screen, BLUE_GREY, rect)
     else:
         pygame.draw.rect(screen, BLACK, rect)
 
@@ -381,9 +436,10 @@ def draw_game_based_on_visibility(screen, map_grid, visibility_grid, entities_li
     for entity in entities_list:
             if visibility_grid[entity.y][entity.x]:
                 pygame.draw.rect(screen, entity.color, pygame.Rect(entity.x*20, entity.y*20, 20, 20))
-                draw_name_tag(screen, font, entity)
+                if not isinstance(entity, itm.Item):
+                    draw_name_tag(screen, font, entity)
 
-def draw_hud(screen, font, player):
+def draw_hud(screen, font, player, floor):
     hud_rect = pygame.Rect(0, game_area_height, WIDTH, HUD_SIZE)
 
     outline_thickness = 3
@@ -426,14 +482,19 @@ def draw_hud(screen, font, player):
 
     ###
 
-    str_text = font.render(f'Strength: {player.strength}', True, WHITE)
+    str_text = font.render(f'Strength: {player.GetStrength()}', True, WHITE)
     str_rect = str_text.get_rect(topleft=(410, game_area_height + 10))
 
-    dex_text = font.render(f'Dexterity: {player.dexterity}', True, WHITE)
+    dex_text = font.render(f'Dexterity: {player.GetDexterity()}', True, WHITE)
     dex_rect = dex_text.get_rect(topleft=(410, game_area_height + 40))
 
-    agi_text = font.render(f'Agility: {player.agility}', True, WHITE)
+    agi_text = font.render(f'Agility: {player.GetAgility()}', True, WHITE)
     agi_rect = agi_text.get_rect(topleft=(410, game_area_height + 70))
+
+    ###
+
+    floor_text = font.render(f'Floor: {floor}', True, WHITE)
+    floor_rect = floor_text.get_rect(topleft=(610, game_area_height + 40))
 
     screen.blit(health_text, health_rect)
     screen.blit(level_text, level_rect)
@@ -446,6 +507,9 @@ def draw_hud(screen, font, player):
     screen.blit(str_text, str_rect)
     screen.blit(dex_text, dex_rect)
     screen.blit(agi_text, agi_rect)
+    #
+
+    screen.blit(floor_text, floor_rect)
 
 
 def draw_inventory(screen, font, player):
@@ -462,6 +526,21 @@ def draw_inventory(screen, font, player):
         screen.blit(item_text, (x_offset, y_offset))
         y_offset += item_text.get_height() + 5
 
+
+def NextLevel(player, floor, entities_list, notification_manager):
+    floor += 1
+    map_grid, rooms = make_map(MAX_ROOMS, ROOM_SIZE_MIN, ROOM_SIZE_MAX)
+    entities_list = []
+    entities_list.append(player)
+
+    entities_list = place_entities(map_grid, rooms, floor, player, entities_list)
+    place_statics(map_grid, rooms, floor, player)
+
+    notification_manager.add_notification(f"You move further down..")
+
+    visibility_grid = [[False for _ in range(len(map_grid[0]))] for _ in range(len(map_grid))]
+
+    return map_grid, rooms, entities_list, floor, visibility_grid
 
 # Initiliaze Game
 pygame.init()
@@ -483,26 +562,25 @@ def Engine():
     clock = pygame.time.Clock()
     notification_manager = NotificationManager(hud_font)
     floor = 1
-    map_grid, rooms = make_map(30, 6, 10)
+    map_grid, rooms = make_map(MAX_ROOMS, ROOM_SIZE_MIN, ROOM_SIZE_MAX)
     player = ent.Player(0, 0)
 
     # Give starter items to player
     weapon = itm.IronSword(0,0)
-    weapon.interact(player, notification_manager)
+    player.interact(weapon, notification_manager)
     player.Equip(weapon, notification_manager)
 
     armor = itm.ChainMail(0,0)
-    armor.interact(player, notification_manager)
+    player.interact(armor, notification_manager)
     player.Equip(armor, notification_manager)
 
     food = itm.Food(0,0)
-    food.interact(player, notification_manager)
-
-    place_statics(map_grid, rooms, floor)
+    player.interact(food, notification_manager)
 
     entities_list = []
     entities_list.append(player)
     entities_list = place_entities(map_grid, rooms, floor, player, entities_list)
+    place_statics(map_grid, rooms, floor, player)
 
     visibility_grid = [[False for _ in range(len(map_grid[0]))] for _ in range(len(map_grid))]
 
@@ -512,88 +590,109 @@ def Engine():
     input_text = ''
     confirmation_state = False
     selected_item_index = None
+    player_died_check = False
+    player_died_timer = 0
     
     while running:
-        
-        update_vision_normal(player.x, player.y, map_grid, visibility_grid, player.viewDistance)
-        update_vision_lit_rooms(player.x, player.y, rooms, visibility_grid)
 
-        
+        if not player.isAlive:
+            if not player_died_check:
+                player_died_timer = pygame.time.get_ticks()  # Get the current time
+                player_died_check = True
 
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+            visibility_grid = [[False for _ in range(len(map_grid[0]))] for _ in range(len(map_grid))]
+            open_inventory = False
+            input_text = ''
+            confirmation_state = False
+            selected_item_index = None
+
+            if player_died_timer + 5*1000 < pygame.time.get_ticks():
                 running = False
+
+        else:    
         
-            if event.type == pygame.KEYDOWN:
-                playerUsedTurn = False
-                if event.key == pygame.K_LEFT:
-                    player.move(-1, 0, map_grid, entities_list, notification_manager)
-                    playerUsedTurn = True
-                elif event.key == pygame.K_RIGHT:
-                    player.move(1, 0, map_grid, entities_list, notification_manager)
-                    playerUsedTurn = True
-                elif event.key == pygame.K_UP:
-                    player.move(0, -1, map_grid, entities_list, notification_manager)
-                    playerUsedTurn = True
-                elif event.key == pygame.K_DOWN:
-                    player.move(0, 1, map_grid, entities_list, notification_manager)
-                    playerUsedTurn = True
+            update_vision_normal(player.x, player.y, map_grid, visibility_grid, player.viewDistance)
+            update_vision_lit_rooms(player.x, player.y, rooms, visibility_grid)
 
-                if event.key == pygame.K_q:
-                    player.viewDistance = ent.VIEW_DISTANCE_MAX
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+            
+                if event.type == pygame.KEYDOWN:
+                    playerUsedTurn = False
+                    if event.key == pygame.K_LEFT:
+                        player.move(-1, 0, map_grid, entities_list, notification_manager)
+                        playerUsedTurn = True
+                    elif event.key == pygame.K_RIGHT:
+                        player.move(1, 0, map_grid, entities_list, notification_manager)
+                        playerUsedTurn = True
+                    elif event.key == pygame.K_UP:
+                        player.move(0, -1, map_grid, entities_list, notification_manager)
+                        playerUsedTurn = True
+                    elif event.key == pygame.K_DOWN:
+                        player.move(0, 1, map_grid, entities_list, notification_manager)
+                        playerUsedTurn = True
 
-                if event.key == pygame.K_i:
-                    open_inventory = not open_inventory
-                    input_text = ''
-                    confirmation_state = False
-                    selected_item_index = None
-                elif open_inventory and not confirmation_state:
-                    if event.key == pygame.K_RETURN:
-                        if input_text.isdigit():
-                            index = int(input_text)
-                            if 0 <= index < len(player.inventory):
-                                selected_item_index = index
-                                confirmation_state = True
-                                input_text = ''  # Reset input text for yes/no input
+                    if event.key == pygame.K_q:
+                        player.viewDistance = ent.VIEW_DISTANCE_MAX
+
+                    if event.key == pygame.K_i:
+                        open_inventory = not open_inventory
                         input_text = ''
-                    elif event.key == pygame.K_BACKSPACE:
-                        input_text = input_text[:-1]
-                    else:
-                        input_text += event.unicode
-                
-                elif open_inventory and confirmation_state:
-                    if event.key == pygame.K_y:
-                        # Handle using the item
-                        selected_item = player.inventory[selected_item_index]
-                        
-                        if selected_item.canWield:
-                            player.Equip(selected_item, notification_manager)
+                        confirmation_state = False
+                        selected_item_index = None
+                    elif open_inventory and not confirmation_state:
+                        if event.key == pygame.K_RETURN:
+                            if input_text.isdigit():
+                                index = int(input_text)
+                                if 0 <= index < len(player.inventory):
+                                    selected_item_index = index
+                                    confirmation_state = True
+                                    input_text = ''  # Reset input text for yes/no input
+                            input_text = ''
+                        elif event.key == pygame.K_BACKSPACE:
+                            input_text = input_text[:-1]
                         else:
-                            selected_item.OnUse(player, notification_manager)
+                            input_text += event.unicode
+                    
+                    elif open_inventory and confirmation_state:
+                        if event.key == pygame.K_y:
+                            # Handle using the item
+                            selected_item = player.inventory[selected_item_index]
+                            
+                            if selected_item.canWield:
+                                player.Equip(selected_item, notification_manager)
+                            else:
+                                selected_item.OnUse(player, selected_item_index, notification_manager)
 
-                        confirmation_state = False
-                        input_text = ''
-                    elif event.key == pygame.K_n:
-                        # Cancel the use of the item
-                        confirmation_state = False
-                        input_text = ''
+                            confirmation_state = False
+                            input_text = ''
+                        elif event.key == pygame.K_n:
+                            # Cancel the use of the item
+                            confirmation_state = False
+                            input_text = ''
 
-                if playerUsedTurn:
-                    for id, entity in enumerate(entities_list):
-                        if not entity.isAlive:
-                            entities_list.pop(id)
+                    if playerUsedTurn:
+                        for id, entity in enumerate(entities_list):
+                            if not entity.isAlive:
+                                entities_list.pop(id)
 
-                    # After the player moves, enemies take their turn
-                    enemies = [ent for ent in entities_list if ent.isHostile]
-                    for enemy in enemies:
-                        enemy.chooseAction(map_grid, player, entities_list, notification_manager)
+                        # Check if we moved onto a stairs tile
+                        if map_grid[player.y][player.x] == tiles.STAIRS:
+                            # Go to next level
+                            map_grid, rooms, entities_list, floor, visibility_grid = NextLevel(player, floor, entities_list, notification_manager)
+
+                        # After the player moves, enemies take their turn
+                        enemies = [ent for ent in entities_list if ent.isHostile]
+                        for enemy in enemies:
+                            enemy.chooseAction(map_grid, player, entities_list, notification_manager)
 
                     
         notification_manager.update()
 
         screen.fill(BLACK)
         draw_game_based_on_visibility(screen, map_grid, visibility_grid, entities_list)
-        draw_hud(screen, hud_font, player)
+        draw_hud(screen, hud_font, player, floor)
         notification_manager.draw(screen)
         if open_inventory:
             draw_inventory(screen, font, player)

@@ -11,6 +11,8 @@ class Goblin(Enemy):
         self.type = GOBLIN
         self.color = (100,230,5)
 
+        self.xpValue = 2
+
 class HobGoblin(Enemy):
     def __init__(self, x, y):
         super().__init__(x, y)
@@ -22,6 +24,8 @@ class HobGoblin(Enemy):
         self.agility = 2
         self.type = HOBGOBLIN
         self.color = (82,83,4)
+
+        self.xpValue = 3
 
 class Skeleton(Enemy):
     def __init__(self, x, y):
@@ -35,6 +39,8 @@ class Skeleton(Enemy):
         self.type = SKELETON_UNARMED
         self.color = (200,200,200)
 
+        self.xpValue = 2
+
 class SkeletonSS(Skeleton):
     def __init__(self, x, y):
         super().__init__(x, y)
@@ -47,6 +53,8 @@ class SkeletonSS(Skeleton):
         self.type = SKELETON_SWORD_SHIELD
         self.color = (200,200,200)
 
+        self.xpValue = 3
+
 class SkeletonBow(Skeleton):
     def __init__(self, x, y):
         super().__init__(x, y)
@@ -57,6 +65,8 @@ class SkeletonBow(Skeleton):
         self.agility = 5
         self.type = SKELETON_BOW
         self.color = (200,200,200)
+
+        self.xpValue = 3
 
 class SkeletonArmored(Skeleton):
     def __init__(self, x, y):
@@ -69,6 +79,8 @@ class SkeletonArmored(Skeleton):
         self.agility = 1
         self.type = SKELETON_ARMORED
         self.color = (200,200,200)
+
+        self.xpValue = 4
 
 # Tier 2 SPECIFIC Enemies
 
@@ -84,6 +96,8 @@ class SkeletonMage(Skeleton):
         self.type = SKELETON_MAGE
         self.color = (200,200,230)
 
+        self.xpValue = 4
+
 class Ogre(HobGoblin):
     def __init__(self, x, y):
         super().__init__(x, y)
@@ -96,6 +110,8 @@ class Ogre(HobGoblin):
         self.type = OGRE
         self.color = (230,211,132)
 
+        self.xpValue = 6
+
 class OgreArmored(HobGoblin):
     def __init__(self, x, y):
         super().__init__(x, y)
@@ -107,6 +123,8 @@ class OgreArmored(HobGoblin):
         self.agility = 1
         self.type = OGRE_ARMORED
         self.color = (230,211,132)
+        
+        self.xpValue = 7
 
 class Orc(HobGoblin):
     def __init__(self, x, y):
@@ -120,6 +138,8 @@ class Orc(HobGoblin):
         self.type = ORC
         self.color = (230,250,152)
 
+        self.xpValue = 5
+
 class OrcBow(HobGoblin):
     def __init__(self, x, y):
         super().__init__(x, y)
@@ -131,6 +151,8 @@ class OrcBow(HobGoblin):
         self.agility = 7
         self.type = ORC_BOW
         self.color = (230,250,152)
+
+        self.xpValue = 5
 
 # Tier 3 Specific
 class Ghoul(Enemy):
@@ -145,6 +167,8 @@ class Ghoul(Enemy):
         self.type = GHOUL
         self.color = (233, 116, 81)
 
+        self.xpValue = 10
+
 class OrcBrute(Enemy):
     def __init__(self, x, y):
         super().__init__(x, y)
@@ -156,6 +180,8 @@ class OrcBrute(Enemy):
         self.agility = 5
         self.type = ORC_BRUTE
         self.color = (230,250,152)
+
+        self.xpValue = 10
 
 class OgreBerserker(Enemy):
     def __init__(self, x, y):
@@ -169,6 +195,8 @@ class OgreBerserker(Enemy):
         self.type = OGRE_BERSERKER
         self.color = (230,211,132)
 
+        self.xpValue = 12
+
 class SkeletonKnight(Skeleton):
     def __init__(self, x, y):
         super().__init__(x, y)
@@ -181,6 +209,8 @@ class SkeletonKnight(Skeleton):
         self.type = SKELETON_KNIGHT
         self.color = (175,175,175)
 
+        self.xpValue = 12
+
 class Ghost(Skeleton):
     def __init__(self, x, y):
         super().__init__(x, y)
@@ -192,6 +222,8 @@ class Ghost(Skeleton):
         self.agility = 25
         self.type = GHOST
         self.color = (200,200,255)
+
+        self.xpValue = 10
 
 # Bosses
 class DeathKnight(Enemy):

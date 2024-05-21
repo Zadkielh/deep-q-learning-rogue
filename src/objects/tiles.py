@@ -8,6 +8,7 @@ WALL = 2
 WALL_TORCH = 3
 DOOR = 4
 TUNNEL = 5
+STAIRS = 6
 
 BLOCKED_TILES = [
         VOID,
@@ -34,9 +35,9 @@ class Room:
                 self.y1 <= other.y2 and self.y2 >= other.y1)
     
     def isWall(self, x, y):
-        if x == self.x1 or x == self.x2 - 1:
+        if x == self.x1 or x == self.x2-1:
             return True
-        elif y == self.y1 or y == self.y2 - 1:
+        elif y == self.y1 or y == self.y2-1:
             return True
         
     def isCorner(self, x, y):
@@ -55,7 +56,7 @@ class Room:
                     grid[y][x] = FLOOR
 
     def contains(self, x, y):
-        return self.x1 <= x <= self.x2 and self.y1 <= y <= self.y2
+        return self.x1 < x < self.x2-1 and self.y1 < y < self.y2-1
     
     def hasDoor(self, grid):
         for x in range(self.x1, self.x2):
