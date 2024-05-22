@@ -84,7 +84,7 @@ class HealthPotion(Item):
 
         self.heal = 10
     
-    def OnUse(self, caller, notification_manager):
+    def OnUse(self, caller, index, notification_manager):
         caller.health = min(caller.health + self.heal, caller.maxHealth)
         notification_manager.add_notification(f"You regain {self.heal} health!")
         self.removeFromInventory(caller, index)

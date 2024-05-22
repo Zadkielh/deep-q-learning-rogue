@@ -146,12 +146,15 @@ class Player(Entity):
             SLOT_BODY : None,
             SLOT_RHAND : None,
             SLOT_LHAND : None,
-            SLOT_BELT : None
+            SLOT_BELT : None,
+            SLOT_TWOHAND : None
         }
 
         self.strength = 2
         self.agility = 2
         self.dexterity = 2
+        self.lastx = x
+        self.lasty = y
 
     def Equip(self, item, notification_manager):
         if not item in self.inventory: return False
@@ -168,6 +171,9 @@ class Player(Entity):
                 self.equipped[slot] = item
                 notification_manager.add_notification(f"You have equipped {item.name}.")
                 return True
+            elif slot == SLOT_RHAND or slot == SLOT_LHAND:
+                self.equipped[SLOT_TWOHAND] = None
+                self.equipped[slot] = item
             else:
                 self.equipped[slot] = item
                 notification_manager.add_notification(f"You have equipped {item.name}.")

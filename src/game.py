@@ -592,6 +592,7 @@ def Engine():
     place_statics(engine_data['map_grid'], engine_data['rooms'], engine_data['floor'], engine_data['player'])
 
     engine_data['visibility_grid'] = [[False for _ in range(len(engine_data['map_grid'][0]))] for _ in range(len(engine_data['map_grid']))]
+    engine_data['old_visibility_grid'] = engine_data['visibility_grid']
 
     engine_data['notification_manager'].add_notification(f"Your descent starts..")
 
