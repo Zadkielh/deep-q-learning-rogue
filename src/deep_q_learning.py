@@ -1,5 +1,3 @@
-# deep_q_learning.py
-
 from game import HEIGHT, WIDTH
 import torch
 import torch.nn as nn
@@ -9,11 +7,6 @@ import numpy as np
 from collections import deque
 from environment import RogueEnvironment
 import torch.nn.functional as F
-
-
-# Example dimensions for testing
-HEIGHT = 600  # Change to your height
-WIDTH = 1000  # Change to your width
 
 class DQN(nn.Module):
     def __init__(self, input_dim, output_dim):
@@ -45,25 +38,22 @@ class DQN(nn.Module):
         x = self.conv3(x)
         x = F.relu(x)
         return self.head(x)
-
-# Initialize DQN
-input_dim = (3, HEIGHT, WIDTH)  # RGB image dimensions
-output_dim = 4  # Number of actions
-model = DQN(input_dim, output_dim)
-print(model)  # You can see the model architecture
+    
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
 
 class DQNAgent:
     def __init__(self, input_dim, output_dim):
-        self.model = DQN(input_dim, output_dim)
-        self.target_model = DQN(input_dim, output_dim)
+        self.model = DQN(input_dim, output_dim).to(device)
+        self.target_model = DQN(input_dim, output_dim).to(device)
         self.target_model.load_state_dict(self.model.state_dict())
         self.target_model.eval()
 
-        self.memory = deque(maxlen=10000)
+        self.memory = deque(maxlen=1000)
         self.optimizer = optim.Adam(self.model.parameters(), lr=0.0001)
         self.criterion = nn.MSELoss()
         self.gamma = 0.99
-        self.batch_size = 32
+        self.batch_size = 16
         self.epsilon = 1.0
         self.epsilon_decay = 0.995
         self.epsilon_min = 0.01
@@ -75,7 +65,7 @@ class DQNAgent:
     def act(self, state):
         if np.random.rand() <= self.epsilon:
             return random.randrange(4)
-        state = torch.FloatTensor(state).unsqueeze(0)
+        state = torch.FloatTensor(state).unsqueeze(0).to(device)
         with torch.no_grad():
             q_values = self.model(state)
         return torch.argmax(q_values[0]).item()
@@ -86,11 +76,11 @@ class DQNAgent:
         batch = random.sample(self.memory, self.batch_size)
         states, actions, rewards, next_states, dones = zip(*batch)
 
-        states = torch.FloatTensor(np.array(states))
-        actions = torch.LongTensor(np.array(actions))
-        rewards = torch.FloatTensor(np.array(rewards))
-        next_states = torch.FloatTensor(np.array(next_states))
-        dones = torch.FloatTensor(np.array(dones))
+        states = torch.FloatTensor(np.array(states)).to(device)
+        actions = torch.LongTensor(np.array(actions)).to(device)
+        rewards = torch.FloatTensor(np.array(rewards)).to(device)
+        next_states = torch.FloatTensor(np.array(next_states)).to(device)
+        dones = torch.FloatTensor(np.array(dones)).to(device)
 
         q_values = self.model(states)
         next_q_values = self.target_model(next_states)
@@ -112,13 +102,13 @@ class DQNAgent:
 
 # Training the agent
 env = RogueEnvironment()
-print("Environment initialized")  # Debugging statement
+print("Environment initialized")
 agent = DQNAgent(input_dim=(3, HEIGHT, WIDTH), output_dim=4)
-print("Agent initialized")  # Debugging statement
-episodes = 1000
+print("Agent initialized")
+episodes = 100
 
 for e in range(episodes):
-    print(f"Starting episode {e}")  # Debugging statement
+    print(f"Starting episode {e}")
     state = env.reset()
     state = np.transpose(state, (2, 0, 1))  # For channels-first format expected by Conv2D
     done = False
@@ -127,7 +117,7 @@ for e in range(episodes):
 
     while not done:
         action = agent.act(state)
-        print(f"Episode: {e}, Step: {step_count}, Action: {action}")  # Print the chosen action
+        print(f"Episode: {e}, Step: {step_count}, Action: {action}, Total Reward: {total_reward}")
         next_state, reward, done = env.step(action)
         next_state = np.transpose(next_state, (2, 0, 1))
         agent.remember(state, action, reward, next_state, done)
