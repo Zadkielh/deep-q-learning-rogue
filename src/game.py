@@ -1,4 +1,5 @@
 import pygame
+import pygame.surfarray
 import sys
 import random
 from objects import tiles
@@ -7,16 +8,20 @@ from objects import enemies as enm
 from objects import items as itm
 
 # Constants
-WIDTH = 1000
-HEIGHT = 600
-TILESIZE = 20
+WIDTH = 1600
+HEIGHT = 800
+
+V_WIDTH = 80
+V_HEIGHT = 40
+
+TILESIZE = 1
 
 HUD_SIZE = 100
 
 game_area_height = HEIGHT
 
-GRIDWIDTH = WIDTH // TILESIZE
-GRIDHEIGHT = HEIGHT // TILESIZE
+GRIDWIDTH = V_WIDTH // TILESIZE
+GRIDHEIGHT = V_HEIGHT // TILESIZE
 
 MAX_ROOMS = 30
 ROOM_SIZE_MIN = 6
@@ -549,6 +554,10 @@ pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT + HUD_SIZE))
 pygame.display.set_caption('Rogue-like')
 
+virtual_width = V_WIDTH // TILESIZE
+virtual_height = V_HEIGHT // TILESIZE
+virtual_display = pygame.Surface((virtual_width, virtual_height))
+
 # Font
 font = pygame.font.Font(None, 14)
 hud_font = pygame.font.Font(None, 24)
@@ -622,8 +631,10 @@ def step_game(engine_data, action):
     return engine_data
 
 def render_game(engine_data):
-    screen.fill(BLACK)
-    draw_game_based_on_visibility(screen, engine_data['map_grid'], engine_data['visibility_grid'], engine_data['entities_list'])
+    virtual_display.fill((0, 0, 0))
+    draw_game_based_on_visibility(virtual_display, engine_data['map_grid'], engine_data['visibility_grid'], engine_data['entities_list'])
+    scaled_display = pygame.transform.scale(virtual_display, (WIDTH, HEIGHT))
+    screen.blit(scaled_display, (0, 0))
     draw_hud(screen, hud_font, engine_data['player'], engine_data['floor'])
     engine_data['notification_manager'].draw(screen)
     pygame.display.flip()

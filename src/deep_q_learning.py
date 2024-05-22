@@ -1,4 +1,4 @@
-from game import HEIGHT, WIDTH
+from game import V_HEIGHT, V_WIDTH
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -19,8 +19,8 @@ class DQN(nn.Module):
         def conv2d_size_out(size, kernel_size = 8, stride = 4):
             return (size - (kernel_size - 1) - 1) // stride + 1
 
-        convw = conv2d_size_out(conv2d_size_out(conv2d_size_out(WIDTH, 8, 4), 4, 2), 3, 1)
-        convh = conv2d_size_out(conv2d_size_out(conv2d_size_out(HEIGHT, 8, 4), 4, 2), 3, 1)
+        convw = conv2d_size_out(conv2d_size_out(conv2d_size_out(V_WIDTH, 8, 4), 4, 2), 3, 1)
+        convh = conv2d_size_out(conv2d_size_out(conv2d_size_out(V_HEIGHT, 8, 4), 4, 2), 3, 1)
         linear_input_size = convw * convh * 64
 
         self.head = nn.Sequential(
@@ -103,7 +103,7 @@ class DQNAgent:
 # Training the agent
 env = RogueEnvironment()
 print("Environment initialized")
-agent = DQNAgent(input_dim=(3, HEIGHT, WIDTH), output_dim=4)
+agent = DQNAgent(input_dim=(3, V_HEIGHT, V_WIDTH), output_dim=4)
 print("Agent initialized")
 episodes = 100
 

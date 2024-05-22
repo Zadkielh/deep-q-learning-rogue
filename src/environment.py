@@ -1,13 +1,13 @@
 import numpy as np
 import pygame
-from game import Engine, draw_game_based_on_visibility, step_game, render_game, ent, tiles, WIDTH, HEIGHT
+from game import Engine, draw_game_based_on_visibility, step_game, render_game, ent, tiles, V_WIDTH, V_HEIGHT
 
 class RogueEnvironment:
     def __init__(self):
         print("Initializing environment")
         self.engine_data = Engine()
         self.action_space = 5  # Up, Down, Left, Right, Attack
-        self.observation_space = (HEIGHT, WIDTH, 3)  # RGB screen dimensions
+        self.observation_space = (V_HEIGHT, V_WIDTH, 3)  # RGB screen dimensions
         self.visited = set()  # To track visited tiles
         self.total_reward = 0
         self.action_history = []
@@ -35,7 +35,7 @@ class RogueEnvironment:
         return state, reward, done
 
     def _get_state(self):
-        screen = pygame.Surface((WIDTH, HEIGHT))
+        screen = pygame.Surface((V_WIDTH, V_HEIGHT))
         draw_game_based_on_visibility(screen, self.engine_data['map_grid'], self.engine_data['visibility_grid'], self.engine_data['entities_list'])
         state = pygame.surfarray.array3d(screen)
         return state
