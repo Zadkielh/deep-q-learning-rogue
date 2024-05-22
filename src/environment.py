@@ -66,19 +66,30 @@ class RogueEnvironment:
         current_pos = (player.x, player.y)
         if current_pos not in self.visited:
             reward += 5  # Increase reward for exploring new tiles
+            # Give additional reward if visited a door for the first time
+            if self.engine_data['map_grid'][player.y][player.x] == tiles.DOOR:
+                reward += 25
+            # Give additional smaller reward for visiting a tunnel tile for the first time
+            elif self.engine_data['map_grid'][player.y][player.x] == tiles.TUNNEL:
+                reward += 5
+
             self.visited.add(current_pos)
             self.visit_counts[current_pos] = 1
         else:
             self.visit_counts[current_pos] += 1
-            if self.visit_counts[current_pos] > 10:  # Threshold for penalizing repetitive visits
+            if self.visit_counts[current_pos] > 20:  # Threshold for penalizing repetitive visits
                 reward -= 2  # Penalize revisiting the same tile
+
+        # Reward for visiting a door for the first time
+        
+
+        # Reward for visiting a tunnel tile for the first time
+
 
         # Negative Reward for staying at the same coordinates
         last_pos = (player.lastx, player.lasty)
         if (current_pos == last_pos):
-            reward -= 2
-            player.lastx = player.x
-            player.lasty = player.y
+            reward -= 0.1
 
         # Reward for revealing more tiles
         old_data = sum(len(sublist) for sublist in self.engine_data['old_visibility_grid'])
@@ -91,18 +102,18 @@ class RogueEnvironment:
         if not player.isAlive:
             reward -= 1000  # High negative reward for death
         elif self.engine_data['map_grid'][player.y][player.x] == tiles.STAIRS:
-            reward += 100  # High positive reward for reaching stairs
+            reward += 1000  # High positive reward for reaching stairs
 
         # Reward for killing an enemy
         for entity in self.engine_data['entities_list']:
             if isinstance(entity, ent.Enemy) and not entity.isAlive:
-                reward += 50
+                reward += 100
                 self.engine_data['entities_list'].remove(entity)
 
         # Reward for collecting an item
         for entity in self.engine_data['entities_list']:
             if isinstance(entity, ent.Item) and not entity.isAlive:
-                reward += 25
+                reward += 50
                 self.engine_data['entities_list'].remove(entity)
 
         # Check for repetitive actions
@@ -122,46 +133,48 @@ class RogueEnvironment:
         for item in player.inventory:
             if item.canWield:
                 currently_equipped = player.equipped[item.slot]
-                if item.name == currently_equipped.name: return
-                other_equipped = None
-                # Two hand items
-                if item.slot == SLOT_TWOHAND:
-                    # Check if we have a two-hand item equipped first
-                    currently_equipped = player.equipped[item.slot]
-                    
-                    # If we don't check the hands
-                    if currently_equipped == None:
-                        currently_equipped = player.equipped[SLOT_RHAND]
-                        other_equipped = player.equipped[SLOT_LHAND]
+                if currently_equipped:
+                    if item.name == currently_equipped.name: continue
+                    other_equipped = None
+                    # Two hand items
+                    if item.slot == SLOT_TWOHAND:
+                        # Check if we have a two-hand item equipped first
+                        currently_equipped = player.equipped[item.slot]
+                        
+                        # If we don't check the hands
+                        if currently_equipped == None:
+                            currently_equipped = player.equipped[SLOT_RHAND]
+                            other_equipped = player.equipped[SLOT_LHAND]
 
-                weights = {
-                    'damage': 2,
-                    'armor': 4,
-                    'strength': 3,
-                    'dexterity': 2,
-                    'agility': 2
-                }
+                    weights = {
+                        'damage': 2,
+                        'armor': 4,
+                        'strength': 3,
+                        'dexterity': 2,
+                        'agility': 2
+                    }
 
-                value = 0
-                for stat, weight in weights.items():
-                    stat_value = getattr(item, stat, 0)
-                    value += stat_value * weight
-
-                old_value = 0
-                for stat, weight in weights.items():
-                    stat_value = getattr(currently_equipped, stat, 0)
-                    old_value += stat_value * weight
-
-                # Get value of other hand too
-                if other_equipped:
+                    value = 0
                     for stat, weight in weights.items():
-                        stat_value = getattr(other_equipped, stat, 0)
+                        stat_value = getattr(item, stat, 0)
+                        value += stat_value * weight
+
+                    old_value = 0
+                    for stat, weight in weights.items():
+                        stat_value = getattr(currently_equipped, stat, 0)
                         old_value += stat_value * weight
 
-                wield = False
-                if value > old_value:
-                    wield = True
+                    # Get value of other hand too
+                    if other_equipped:
+                        for stat, weight in weights.items():
+                            stat_value = getattr(other_equipped, stat, 0)
+                            old_value += stat_value * weight
 
+                    wield = False
+                    if value > old_value:
+                        wield = True
+                else:
+                    wield = True
                 if wield:
                     player.Equip(item, self.engine_data['notification_manager'])
 

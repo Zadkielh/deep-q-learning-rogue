@@ -616,6 +616,8 @@ def step_game(engine_data, action):
         playerUsedTurn = True
 
     if playerUsedTurn:
+        player.lastx = player.x
+        player.lasty = player.y
         for entity in engine_data['entities_list']:
             if entity.isHostile:
                 entity.chooseAction(engine_data['map_grid'], player, engine_data['entities_list'], engine_data['notification_manager'])

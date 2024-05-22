@@ -55,8 +55,8 @@ class DQNAgent:
         self.gamma = 0.99
         self.batch_size = 128
         self.epsilon = 1.0
-        self.epsilon_decay = 0.995
-        self.epsilon_min = 0.01
+        self.epsilon_decay = 0.999
+        self.epsilon_min = 0.2
         self.input_dim = input_dim
 
     def remember(self, state, action, reward, next_state, done):
