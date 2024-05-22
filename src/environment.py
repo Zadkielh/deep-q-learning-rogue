@@ -1,6 +1,8 @@
 import numpy as np
+import time
 import pygame
 from game import Engine, draw_game_based_on_visibility, step_game, render_game, ent, tiles, V_WIDTH, V_HEIGHT
+from objects.items import Food, HealthPotion
 
 class RogueEnvironment:
     def __init__(self):
@@ -27,12 +29,24 @@ class RogueEnvironment:
         self.action_history.append(action)
         if len(self.action_history) > 20:
             self.action_history.pop(0)  # Keep only the last 20 actions
+
+        self._check_and_equip_items()  # Check and equip items after picking them up
+        self._check_and_use_health_items()  # Check and use health-restoring items
         
         reward, done = self._compute_reward()  # Updated to receive two values
         if done:
             print("Ending episode due to low performance.")
         state = self._get_state()
+
+        self._smooth_delay(0.001)
+
         return state, reward, done
+    
+    def _smooth_delay(self, delay_time):
+        end_time = time.time() + delay_time
+        while time.time() < end_time:
+            pygame.event.pump()
+            time.sleep(0.001)  # Sleep for 10 milliseconds
 
     def _get_state(self):
         screen = pygame.Surface((V_WIDTH, V_HEIGHT))
@@ -47,7 +61,7 @@ class RogueEnvironment:
         # Check if the current tile has been visited
         current_pos = (player.x, player.y)
         if current_pos not in self.visited:
-            reward += 5  # Increase reward for exploring new tiles
+            reward += 1  # Increase reward for exploring new tiles
             self.visited.add(current_pos)
 
         if not player.isAlive:
@@ -64,7 +78,7 @@ class RogueEnvironment:
         # Reward for collecting an item
         for entity in self.engine_data['entities_list']:
             if isinstance(entity, ent.Item) and not entity.isAlive:
-                reward += 10
+                reward += 25
                 self.engine_data['entities_list'].remove(entity)
 
         # Check for repetitive actions
@@ -78,6 +92,45 @@ class RogueEnvironment:
             return reward, True
 
         return reward, False
+    
+    def _check_and_equip_items(self):
+        player = self.engine_data['player']
+        for item in player.inventory:
+            if item.canWield:
+                currently_equipped = player.equipped[item.slot]
+
+                weights = {
+                    'damage': 2,
+                    'armor': 4,
+                    'strength': 3,
+                    'dexterity': 2,
+                    'agility': 2
+                }
+
+                value = 0
+                for stat, weight in weights.items():
+                    stat_value = getattr(item, stat, 0)
+                    value += stat_value * weight
+
+                old_value = 0
+                for stat, weight in weights.items():
+                    stat_value = getattr(currently_equipped, stat, 0)
+                    old_value += stat_value * weight
+
+                wield = False
+                if value > old_value:
+                    wield = True
+
+                if wield:
+                    player.Equip(item, self.engine_data['notification_manager'])
+
+    def _check_and_use_health_items(self):
+        player = self.engine_data['player']
+        if player.health <= player.maxHealth * 0.5:
+            for i, item in enumerate(player.inventory):
+                if isinstance(item, (Food, HealthPotion)):
+                    item.OnUse(player, i, self.engine_data['notification_manager'])
+                    break
 
     def render(self):
         render_game(self.engine_data)

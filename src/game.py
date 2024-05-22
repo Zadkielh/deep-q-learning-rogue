@@ -439,6 +439,7 @@ def draw_game_based_on_visibility(screen, map_grid, visibility_grid, entities_li
                 draw_tile(x, y, map_grid, screen)  # Implement drawing based on tile type
     # Draw player and enemies if they are in visible tiles
     for entity in entities_list:
+        if not (0 <= entity.y < len(visibility_grid) and 0 <= entity.x < len(visibility_grid[0])): continue
         if visibility_grid[entity.y][entity.x]:
             pygame.draw.rect(screen, entity.color, pygame.Rect(entity.x * TILESIZE, entity.y * TILESIZE, TILESIZE, TILESIZE))
             if not isinstance(entity, itm.Item):

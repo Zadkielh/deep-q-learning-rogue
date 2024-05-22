@@ -49,11 +49,11 @@ class DQNAgent:
         self.target_model.load_state_dict(self.model.state_dict())
         self.target_model.eval()
 
-        self.memory = deque(maxlen=1000)
+        self.memory = deque(maxlen=6000)
         self.optimizer = optim.Adam(self.model.parameters(), lr=0.0001)
         self.criterion = nn.MSELoss()
         self.gamma = 0.99
-        self.batch_size = 16
+        self.batch_size = 128
         self.epsilon = 1.0
         self.epsilon_decay = 0.995
         self.epsilon_min = 0.01
@@ -82,13 +82,18 @@ class DQNAgent:
         next_states = torch.FloatTensor(np.array(next_states)).to(device)
         dones = torch.FloatTensor(np.array(dones)).to(device)
 
+        # Compute current Q values and next Q values
         q_values = self.model(states)
         next_q_values = self.target_model(next_states)
-        target_q_values = q_values.clone()
 
-        for i in range(self.batch_size):
-            target_q_values[i][actions[i]] = rewards[i] + (1 - dones[i]) * self.gamma * torch.max(next_q_values[i])
+        # Select the Q values for the chosen actions
+        q_values = q_values.gather(1, actions.unsqueeze(1)).squeeze(1)
+        
+        # Calculate target Q values
+        next_q_values = next_q_values.max(1)[0]
+        target_q_values = rewards + (1 - dones) * self.gamma * next_q_values
 
+        # Compute loss
         loss = self.criterion(q_values, target_q_values)
         self.optimizer.zero_grad()
         loss.backward()
@@ -96,6 +101,7 @@ class DQNAgent:
 
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
+
 
     def update_target_model(self):
         self.target_model.load_state_dict(self.model.state_dict())
@@ -124,8 +130,7 @@ for e in range(episodes):
         state = next_state
         total_reward += reward
         agent.replay()
-        
-        # Render the game for visualization
+
         env.render()
         step_count += 1
 

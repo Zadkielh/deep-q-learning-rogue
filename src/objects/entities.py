@@ -4,6 +4,8 @@ import random
 
 
 def IsTileBlocked(x, y, grid, entities, caller=None):
+    if not (0 <= y < len(grid) and 0 <= x < len(grid[0])):
+        return False, None
     if grid[y][x] in tiles.BLOCKED_TILES:
         return True, grid[y][x]
     
