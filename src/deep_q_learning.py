@@ -15,8 +15,7 @@ class DQN(nn.Module):
         self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
         self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
 
-        # Calculate the size after convolutions
-        def conv2d_size_out(size, kernel_size = 8, stride = 4):
+        def conv2d_size_out(size, kernel_size=8, stride=4):
             return (size - (kernel_size - 1) - 1) // stride + 1
 
         convw = conv2d_size_out(conv2d_size_out(conv2d_size_out(V_WIDTH, 8, 4), 4, 2), 3, 1)
@@ -53,7 +52,7 @@ class DQNAgent:
         self.optimizer = optim.Adam(self.model.parameters(), lr=0.0001)
         self.criterion = nn.MSELoss()
         self.gamma = 0.99
-        self.batch_size = 128
+        self.batch_size = 4
         self.epsilon = 1.0
         self.epsilon_decay = 0.999
         self.epsilon_min = 0.2
@@ -62,9 +61,9 @@ class DQNAgent:
     def remember(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done))
 
-    def act(self, state):
+    def act(self, state, environment):
         if np.random.rand() <= self.epsilon:
-            return random.randrange(4)
+            return environment.prioritized_action()
         state = torch.FloatTensor(state).unsqueeze(0).to(device)
         with torch.no_grad():
             q_values = self.model(state)
@@ -82,18 +81,13 @@ class DQNAgent:
         next_states = torch.FloatTensor(np.array(next_states)).to(device)
         dones = torch.FloatTensor(np.array(dones)).to(device)
 
-        # Compute current Q values and next Q values
         q_values = self.model(states)
         next_q_values = self.target_model(next_states)
 
-        # Select the Q values for the chosen actions
         q_values = q_values.gather(1, actions.unsqueeze(1)).squeeze(1)
-        
-        # Calculate target Q values
         next_q_values = next_q_values.max(1)[0]
         target_q_values = rewards + (1 - dones) * self.gamma * next_q_values
 
-        # Compute loss
         loss = self.criterion(q_values, target_q_values)
         self.optimizer.zero_grad()
         loss.backward()
@@ -122,7 +116,7 @@ for e in range(episodes):
     step_count = 0
 
     while not done:
-        action = agent.act(state)
+        action = agent.act(state, env)
         print(f"Episode: {e}, Step: {step_count}, Action: {action}, Total Reward: {total_reward}")
         next_state, reward, done = env.step(action)
         next_state = np.transpose(next_state, (2, 0, 1))

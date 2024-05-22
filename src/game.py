@@ -43,6 +43,19 @@ BLUE_GREY = ( 96, 125, 139 )
 
 OUTLINE_COLOR = (255, 255, 255)
 
+# Tile priorities
+TILE_PRIORITIES = {
+    tiles.STAIRS: 100,
+    tiles.DOOR: 90,
+    tiles.TUNNEL: 80,
+    tiles.FLOOR: 70,
+    tiles.VOID: -100,
+    tiles.WALL: -100,
+    tiles.WALL_TORCH: 75,
+    tiles.DEBUG: -100,
+}
+
+
 
 ENEMY_TIER_1 = [
     ent.GOBLIN,
@@ -598,10 +611,33 @@ def Engine():
 
     return engine_data
 
-def step_game(engine_data, action):
+def step_game(engine_data, action=None):
     player = engine_data['player']
     playerUsedTurn = False
     
+    # Get possible moves and their corresponding tiles
+    possible_moves = {
+        0: (player.x, player.y - 1),  # Up
+        1: (player.x, player.y + 1),  # Down
+        2: (player.x - 1, player.y),  # Left
+        3: (player.x + 1, player.y),  # Right
+    }
+
+    # Choose the action with the highest priority tile
+    if action is None:  # If action is not provided, choose based on priorities
+        best_action = None
+        highest_priority = float('-inf')
+
+        for move_action, (nx, ny) in possible_moves.items():
+            if 0 <= nx < len(engine_data['map_grid'][0]) and 0 <= ny < len(engine_data['map_grid']):
+                tile = engine_data['map_grid'][ny][nx]
+                priority = TILE_PRIORITIES.get(tile, -100)
+                if priority > highest_priority:
+                    highest_priority = priority
+                    best_action = move_action
+
+        action = best_action if best_action is not None else random.choice(list(possible_moves.keys()))
+
     if action == 0:  # Up
         player.move(0, -1, engine_data['map_grid'], engine_data['entities_list'], engine_data['notification_manager'])
         playerUsedTurn = True
@@ -633,6 +669,7 @@ def step_game(engine_data, action):
         engine_data['map_grid'], engine_data['rooms'], engine_data['entities_list'], engine_data['floor'], engine_data['visibility_grid'] = NextLevel(player, engine_data['floor'], engine_data['entities_list'], engine_data['notification_manager'])
         
     return engine_data
+
 
 def render_game(engine_data):
     virtual_display.fill((0, 0, 0))

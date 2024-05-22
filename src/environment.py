@@ -1,9 +1,22 @@
+import random
 import numpy as np
 import time
 import pygame
 from game import Engine, draw_game_based_on_visibility, step_game, render_game, ent, tiles, V_WIDTH, V_HEIGHT
 from objects.items import Food, HealthPotion
 from objects.ent_constants import SLOT_LHAND, SLOT_RHAND, SLOT_TWOHAND
+
+# Tile priorities
+TILE_PRIORITIES = {
+    tiles.STAIRS: 100,
+    tiles.DOOR: 90,
+    tiles.TUNNEL: 80,
+    tiles.FLOOR: 70,
+    tiles.VOID: -100,
+    tiles.WALL: -100,
+    tiles.WALL_TORCH: 75,
+    tiles.DEBUG: -100,
+}
 
 class RogueEnvironment:
     def __init__(self):
@@ -15,6 +28,7 @@ class RogueEnvironment:
         self.visit_counts = {}
         self.total_reward = 0
         self.action_history = []
+        self.visited_tiles = set()
 
     def reset(self):
         print("Resetting environment")
@@ -23,9 +37,12 @@ class RogueEnvironment:
         self.visit_counts.clear()
         self.total_reward = 0
         self.action_history = []
+        self.visited_tiles.clear()
         return self._get_state()
 
     def step(self, action):
+        if action is None:
+            action = self.prioritized_action()
         print(f"Taking action: {action}")
         self.engine_data = step_game(self.engine_data, action)
         
@@ -45,6 +62,39 @@ class RogueEnvironment:
 
         return state, reward, done
     
+    def prioritized_action(self):
+        player = self.engine_data['player']
+        possible_moves = {
+            0: (player.x, player.y - 1),  # Up
+            1: (player.x, player.y + 1),  # Down
+            2: (player.x - 1, player.y),  # Left
+            3: (player.x + 1, player.y),  # Right
+        }
+        
+        highest_priority = float('-inf')
+        best_actions = []
+
+        print("Possible Moves and Priorities:")
+        for move_action, (nx, ny) in possible_moves.items():
+            if 0 <= nx < len(self.engine_data['map_grid'][0]) and 0 <= ny < len(self.engine_data['map_grid']):
+                tile = self.engine_data['map_grid'][ny][nx]
+                priority = TILE_PRIORITIES.get(tile, -100)
+                if (nx, ny) in self.visited_tiles:
+                    priority = 0  # Reduce priority for visited tiles
+                print(f"Action: {move_action}, Tile: {tile}, Priority: {priority}")
+                if priority > highest_priority:
+                    highest_priority = priority
+                    best_actions = [move_action]
+                elif priority == highest_priority:
+                    best_actions.append(move_action)
+
+        chosen_action = random.choice(best_actions) if best_actions else random.choice(list(possible_moves.keys()))
+        print(f"Chosen Action: {chosen_action}")
+        # Track the new position as visited
+        new_position = possible_moves[chosen_action]
+        self.visited_tiles.add(new_position)
+        return chosen_action
+
     def _smooth_delay(self, delay_time):
         end_time = time.time() + delay_time
         while time.time() < end_time:
@@ -62,14 +112,11 @@ class RogueEnvironment:
         player = self.engine_data['player']
         reward = 0
 
-        # Check if the current tile has been visited
         current_pos = (player.x, player.y)
         if current_pos not in self.visited:
             reward += 5  # Increase reward for exploring new tiles
-            # Give additional reward if visited a door for the first time
             if self.engine_data['map_grid'][player.y][player.x] == tiles.DOOR:
                 reward += 25
-            # Give additional smaller reward for visiting a tunnel tile for the first time
             elif self.engine_data['map_grid'][player.y][player.x] == tiles.TUNNEL:
                 reward += 5
 
@@ -77,26 +124,17 @@ class RogueEnvironment:
             self.visit_counts[current_pos] = 1
         else:
             self.visit_counts[current_pos] += 1
-            if self.visit_counts[current_pos] > 20:  # Threshold for penalizing repetitive visits
+            if self.visit_counts[current_pos] > 20:
                 reward -= 2  # Penalize revisiting the same tile
 
-        # Reward for visiting a door for the first time
-        
-
-        # Reward for visiting a tunnel tile for the first time
-
-
-        # Negative Reward for staying at the same coordinates
         last_pos = (player.lastx, player.lasty)
         if (current_pos == last_pos):
             reward -= 0.1
 
-        # Reward for revealing more tiles
         old_data = sum(len(sublist) for sublist in self.engine_data['old_visibility_grid'])
         new_data = sum(len(sublist) for sublist in self.engine_data['visibility_grid'])
         if (new_data > old_data):
             diff = new_data - old_data
-            # Reward 5 points for each tile revealed
             reward += int(diff)*5
 
         if not player.isAlive:
@@ -104,19 +142,16 @@ class RogueEnvironment:
         elif self.engine_data['map_grid'][player.y][player.x] == tiles.STAIRS:
             reward += 1000  # High positive reward for reaching stairs
 
-        # Reward for killing an enemy
         for entity in self.engine_data['entities_list']:
             if isinstance(entity, ent.Enemy) and not entity.isAlive:
                 reward += 100
                 self.engine_data['entities_list'].remove(entity)
 
-        # Reward for collecting an item
         for entity in self.engine_data['entities_list']:
             if isinstance(entity, ent.Item) and not entity.isAlive:
                 reward += 50
                 self.engine_data['entities_list'].remove(entity)
 
-        # Check for repetitive actions
         if len(set(self.action_history)) == 1 and len(self.action_history) == 20:
             reward -= 50  # Apply a penalty for repetitive actions
             print("Penalty applied for repetitive behavior.")
@@ -136,12 +171,9 @@ class RogueEnvironment:
                 if currently_equipped:
                     if item.name == currently_equipped.name: continue
                     other_equipped = None
-                    # Two hand items
                     if item.slot == SLOT_TWOHAND:
-                        # Check if we have a two-hand item equipped first
                         currently_equipped = player.equipped[item.slot]
-                        
-                        # If we don't check the hands
+                        if item.name == currently_equipped.name: continue
                         if currently_equipped == None:
                             currently_equipped = player.equipped[SLOT_RHAND]
                             other_equipped = player.equipped[SLOT_LHAND]
@@ -164,7 +196,6 @@ class RogueEnvironment:
                         stat_value = getattr(currently_equipped, stat, 0)
                         old_value += stat_value * weight
 
-                    # Get value of other hand too
                     if other_equipped:
                         for stat, weight in weights.items():
                             stat_value = getattr(other_equipped, stat, 0)
