@@ -1,4 +1,5 @@
 import pygame
+import pygame.surfarray
 import sys
 import random
 from objects import tiles
@@ -9,14 +10,18 @@ from objects import items as itm
 # Constants
 WIDTH = 1600
 HEIGHT = 900
-TILESIZE = 20
+
+V_WIDTH = 80
+V_HEIGHT = 45
+
+TILESIZE = 1
 
 HUD_SIZE = 100
 
 game_area_height = HEIGHT
 
-GRIDWIDTH = WIDTH // TILESIZE
-GRIDHEIGHT = HEIGHT // TILESIZE
+GRIDWIDTH = V_WIDTH // TILESIZE
+GRIDHEIGHT = V_HEIGHT // TILESIZE
 
 MAX_ROOMS = 30
 ROOM_SIZE_MIN = 6
@@ -435,14 +440,14 @@ def draw_game_based_on_visibility(screen, map_grid, visibility_grid, entities_li
     # Draw player and enemies if they are in visible tiles
     for entity in entities_list:
             if visibility_grid[entity.y][entity.x]:
-                pygame.draw.rect(screen, entity.color, pygame.Rect(entity.x*20, entity.y*20, 20, 20))
+                pygame.draw.rect(screen, entity.color, pygame.Rect(entity.x, entity.y, 1, 1))
                 if not isinstance(entity, itm.Item):
                     draw_name_tag(screen, font, entity)
 
 def draw_hud(screen, font, player, floor):
     hud_rect = pygame.Rect(0, game_area_height, WIDTH, HUD_SIZE)
 
-    outline_thickness = 3
+    outline_thickness = 10
     outline_rect = pygame.Rect(
         hud_rect.x - outline_thickness,
         hud_rect.y - outline_thickness,
@@ -549,14 +554,18 @@ pygame.init()
 screen = pygame.display.set_mode((WIDTH,HEIGHT + HUD_SIZE))
 pygame.display.set_caption('Rogue-like')
 
+virtual_width = V_WIDTH // TILESIZE
+virtual_height = V_HEIGHT // TILESIZE
+virtual_display = pygame.Surface((virtual_width, virtual_height))
+
 # Font
 font = pygame.font.Font(None, 14)
 hud_font = pygame.font.Font(None, 24)
 noti_font = pygame.font.Font(None, 18)
 
 # Game Loop
-def Engine():
 
+def Engine():
     # Engine Condition
     running = True
     clock = pygame.time.Clock()
@@ -577,8 +586,7 @@ def Engine():
     food = itm.Food(0,0)
     player.interact(food, notification_manager)
 
-    entities_list = []
-    entities_list.append(player)
+    entities_list = [player]
     entities_list = place_entities(map_grid, rooms, floor, player, entities_list)
     place_statics(map_grid, rooms, floor, player)
 
@@ -597,7 +605,7 @@ def Engine():
 
         if not player.isAlive:
             if not player_died_check:
-                player_died_timer = pygame.time.get_ticks()  # Get the current time
+                player_died_timer = pygame.time.get_ticks()
                 player_died_check = True
 
             visibility_grid = [[False for _ in range(len(map_grid[0]))] for _ in range(len(map_grid))]
@@ -609,8 +617,7 @@ def Engine():
             if player_died_timer + 5*1000 < pygame.time.get_ticks():
                 running = False
 
-        else:    
-        
+        else:
             update_vision_normal(player.x, player.y, map_grid, visibility_grid, player.viewDistance)
             update_vision_lit_rooms(player.x, player.y, rooms, visibility_grid)
 
@@ -690,10 +697,10 @@ def Engine():
                     
         notification_manager.update()
 
-        screen.fill(BLACK)
-        draw_game_based_on_visibility(screen, map_grid, visibility_grid, entities_list)
-        draw_hud(screen, hud_font, player, floor)
-        notification_manager.draw(screen)
+        virtual_display.fill((0, 0, 0))  # Clear the virtual display
+        draw_game_based_on_visibility(virtual_display, map_grid, visibility_grid, entities_list)
+        
+        
         if open_inventory:
             draw_inventory(screen, font, player)
             if not confirmation_state:
@@ -707,6 +714,12 @@ def Engine():
                 else: 
                     confirmation_prompt = noti_font.render(f"Use item {player.inventory[selected_item_index].name}? (y/n)", True, WHITE)
                 screen.blit(confirmation_prompt, (10, HEIGHT - 30))
+
+        # Scale up the virtual display to the main screen size
+        scaled_display = pygame.transform.scale(virtual_display, (WIDTH, HEIGHT))
+        screen.blit(scaled_display, (0, 0))
+        notification_manager.draw(screen)
+        draw_hud(screen, hud_font, player, floor)
 
         pygame.display.flip()
         clock.tick(60)
