@@ -12,7 +12,7 @@ class RogueEnvironment:
         self.engine_data = Engine()
         self.action_space = 4  # Up, Down, Left, Right
         self.feature_size = 3
-        self.observation_space = ((V_HEIGHT, V_WIDTH), (4, self.feature_size))
+        self.observation_space = ((4, self.feature_size))
         self.visited = set()  # To track visited tiles
         self.visit_counts = {}
         self.total_reward = 0
@@ -97,14 +97,7 @@ class RogueEnvironment:
 
     def _get_state(self):
         player = self.engine_data['player']
-
-        screen = pygame.Surface((V_WIDTH, V_HEIGHT))
-        self.engine_data['old_visibility_grid'] = self.engine_data['visibility_grid']
         
-        draw_game_based_on_visibility(screen, self.engine_data['map_grid'], self.engine_data['visibility_grid'], self.engine_data['entities_list'])
-
-        tile_based_representation = self._convert_to_tile_based_representation()
-
         # Get features of the neighboring tiles
         neighbors = [
             self._get_tile_features(player.x, player.y - 1),  # Up
@@ -113,7 +106,7 @@ class RogueEnvironment:
             self._get_tile_features(player.x + 1, player.y)   # Right
         ]
 
-        return (tile_based_representation, np.array(neighbors))
+        return (np.array(neighbors))
     
     def _get_tile_features(self, x, y):
         if 0 <= x < V_WIDTH and 0 <= y < V_HEIGHT:
@@ -142,13 +135,13 @@ class RogueEnvironment:
         # Check if the current tile has been visited
         current_pos = (player.x, player.y)
         if current_pos not in self.visited:
-            reward += 5  # Increase reward for exploring new tiles
+            reward += 1  # Increase reward for exploring new tiles
             # Give additional reward if visited a door for the first time
             if tile == tiles.DOOR:
-                reward += 25
+                reward += 3
             # Give additional smaller reward for visiting a tunnel tile for the first time
             elif tile == tiles.TUNNEL:
-                reward += 5
+                reward += 2
 
             self.visited.add(current_pos)
             self.visit_counts[current_pos] = 1
@@ -163,7 +156,7 @@ class RogueEnvironment:
         if (new_data > old_data):
             diff = new_data - old_data
             # Reward 5 points for each tile revealed
-            reward += int(diff)*1
+            reward += int(diff)*0
 
         if not player.isAlive:
             reward -= 1000  # High negative reward for death

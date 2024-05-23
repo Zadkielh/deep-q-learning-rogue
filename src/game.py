@@ -107,8 +107,8 @@ class NotificationManager:
 def draw_name_tag(screen, font, entity, offset_y=10):
     text = font.render(entity.name, True, WHITE)
     text_width = text.get_width()
-    text_rect = text.get_rect(center=(entity.x*20 + 10, entity.y*20 - offset_y))
-    screen.blit(text, (entity.x*20 + 10 - text_width // 2, entity.y*20 - offset_y))
+    text_rect = text.get_rect(center=(entity.x + 10, entity.y - offset_y))
+    screen.blit(text, (entity.x + 10 - text_width // 2, entity.y - offset_y))
 
 def GetEnemyFromTier(tier):
     if tier >= 3:
@@ -638,6 +638,7 @@ def step_game(engine_data, action):
 def render_game(engine_data):
     engine_data['notification_manager'].update()
     virtual_display.fill((0, 0, 0))
+    engine_data['old_visibility_grid'] = engine_data['visibility_grid']
     draw_game_based_on_visibility(virtual_display, engine_data['map_grid'], engine_data['visibility_grid'], engine_data['entities_list'])
     scaled_display = pygame.transform.scale(virtual_display, (WIDTH, HEIGHT))
     screen.blit(scaled_display, (0, 0))
