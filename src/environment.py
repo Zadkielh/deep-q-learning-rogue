@@ -9,8 +9,9 @@ class RogueEnvironment:
     def __init__(self):
         print("Initializing environment")
         self.engine_data = Engine()
-        self.action_space = 5  # Up, Down, Left, Right, Attack
-        self.observation_space = (V_HEIGHT, V_WIDTH, 3)  # RGB screen dimensions
+        self.action_space = 4  # Up, Down, Left, Right
+        self.feature_size = 3
+        self.observation_space = ((V_HEIGHT, V_WIDTH, 3), (4, self.feature_size))
         self.visited = set()  # To track visited tiles
         self.visit_counts = {}
         self.total_reward = 0
@@ -27,7 +28,9 @@ class RogueEnvironment:
 
     def step(self, action):
         print(f"Taking action: {action}")
+        player = self.engine_data['player']
         self.engine_data = step_game(self.engine_data, action)
+        next_tile = self._get_tile_from_action(player)
         
         self.action_history.append(action)
         if len(self.action_history) > 20:
@@ -36,7 +39,7 @@ class RogueEnvironment:
         self._check_and_equip_items()  # Check and equip items after picking them up
         self._check_and_use_health_items()  # Check and use health-restoring items
         
-        reward, done = self._compute_reward()  # Updated to receive two values
+        reward, done = self._compute_reward(next_tile)  # Updated to receive two values
         if done:
             print("Ending episode due to low performance.")
         state = self._get_state()
@@ -45,6 +48,9 @@ class RogueEnvironment:
 
         return state, reward, done
     
+    def _get_tile_from_action(self, player):
+        return self.engine_data['map_grid'][player.y][player.x]
+    
     def _smooth_delay(self, delay_time):
         end_time = time.time() + delay_time
         while time.time() < end_time:
@@ -52,13 +58,43 @@ class RogueEnvironment:
             time.sleep(0.001)  # Sleep for 10 milliseconds
 
     def _get_state(self):
+        player = self.engine_data['player']
+
         screen = pygame.Surface((V_WIDTH, V_HEIGHT))
         self.engine_data['old_visibility_grid'] = self.engine_data['visibility_grid']
         draw_game_based_on_visibility(screen, self.engine_data['map_grid'], self.engine_data['visibility_grid'], self.engine_data['entities_list'])
-        state = pygame.surfarray.array3d(screen)
-        return state
+        full_map = pygame.surfarray.array3d(screen)
 
-    def _compute_reward(self):
+        # Get features of the neighboring tiles
+        neighbors = [
+            self._get_tile_features(player.x, player.y - 1),  # Up
+            self._get_tile_features(player.x, player.y + 1),  # Down
+            self._get_tile_features(player.x - 1, player.y),  # Left
+            self._get_tile_features(player.x + 1, player.y)   # Right
+        ]
+
+        return (full_map, np.array(neighbors))
+    
+    def _get_tile_features(self, x, y):
+        if 0 <= x < V_WIDTH and 0 <= y < V_HEIGHT:
+            tile = self.engine_data['map_grid'][y][x]
+            tile_type = tile  # Assuming tile itself is an integer between 0-6
+            
+            # Check if an entity is present
+            entity_present = 0
+            entity_type = -1  # Default to -1 if no entity is present
+            for entity in self.engine_data['entities_list']:
+                if entity.x == x and entity.y == y:
+                    entity_present = 1
+                    entity_type = entity.type  # Assuming each entity has a 'type' attribute
+                    break
+
+            return [tile_type, entity_present, entity_type]
+        else:
+            # Handle out of bounds as a non-traversable or special tile
+            return [-1, 0, -1]
+
+    def _compute_reward(self, tile):
         player = self.engine_data['player']
         reward = 0
 
@@ -67,24 +103,18 @@ class RogueEnvironment:
         if current_pos not in self.visited:
             reward += 5  # Increase reward for exploring new tiles
             # Give additional reward if visited a door for the first time
-            if self.engine_data['map_grid'][player.y][player.x] == tiles.DOOR:
+            if tile == tiles.DOOR:
                 reward += 25
             # Give additional smaller reward for visiting a tunnel tile for the first time
-            elif self.engine_data['map_grid'][player.y][player.x] == tiles.TUNNEL:
+            elif tile == tiles.TUNNEL:
                 reward += 5
 
             self.visited.add(current_pos)
             self.visit_counts[current_pos] = 1
         else:
             self.visit_counts[current_pos] += 1
-            if self.visit_counts[current_pos] > 20:  # Threshold for penalizing repetitive visits
-                reward -= 2  # Penalize revisiting the same tile
-
-        # Reward for visiting a door for the first time
-        
-
-        # Reward for visiting a tunnel tile for the first time
-
+            if self.visit_counts[current_pos] > 50:  # Threshold for penalizing repetitive visits
+                reward -= 0.1  # Penalize revisiting the same tile
 
         # Negative Reward for staying at the same coordinates
         last_pos = (player.lastx, player.lasty)
@@ -103,6 +133,12 @@ class RogueEnvironment:
             reward -= 1000  # High negative reward for death
         elif self.engine_data['map_grid'][player.y][player.x] == tiles.STAIRS:
             reward += 1000  # High positive reward for reaching stairs
+
+        # Reward for hurting an enemy
+        for entity in self.engine_data['entities_list']:
+            if isinstance(entity, ent.Enemy) and entity.isAlive:
+                if entity.lastHealth < entity.health:
+                    reward += 25
 
         # Reward for killing an enemy
         for entity in self.engine_data['entities_list']:
@@ -140,7 +176,7 @@ class RogueEnvironment:
                     if item.slot == SLOT_TWOHAND:
                         # Check if we have a two-hand item equipped first
                         currently_equipped = player.equipped[item.slot]
-                        
+                        if item.name == currently_equipped.name: continue
                         # If we don't check the hands
                         if currently_equipped == None:
                             currently_equipped = player.equipped[SLOT_RHAND]
@@ -177,6 +213,7 @@ class RogueEnvironment:
                     wield = True
                 if wield:
                     player.Equip(item, self.engine_data['notification_manager'])
+                    return
 
     def _check_and_use_health_items(self):
         player = self.engine_data['player']
@@ -187,4 +224,4 @@ class RogueEnvironment:
                     break
 
     def render(self):
-        render_game(self.engine_data)
+        render_game(self.engine_data)#

@@ -306,6 +306,8 @@ class Player(Entity):
                 # Do extra damage adjustments if applicable
                 damage = target.DoMitigation(damage)
 
+                target.lastHealth = target.health
+                
                 target.health = target.health - max(0, damage)
                 notification_manager.add_notification(f"{self.name} struck {target.name} dealing {damage} damage!")
             else:
@@ -327,6 +329,7 @@ class Enemy(Entity):
         self.isHostile = True
         self.color = (255,0,0)
         self.viewDistance = VIEW_DISTANCE_MEDIUM
+        self.lastHealth = self.health
 
     def chase(self, target_x, target_y, grid, entities, notification_manager):
         step_x = step_y = 0
@@ -402,7 +405,6 @@ class Enemy(Entity):
                 damage -= armor
                 # Do extra damage adjustments if applicable
                 damage = target.DoMitigation(damage)
-
                 target.health = target.health - max(0, damage)
                 notification_manager.add_notification(f"{self.name} struck {target.name} dealing {damage} damage!")
             else:
