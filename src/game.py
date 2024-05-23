@@ -117,11 +117,11 @@ class NotificationManager:
             y_offset += text.get_height() + 5
 
 
-def draw_name_tag(screen, font, entity, offset_y=10):
+def draw_name_tag(screen, font, entity, offset_y=1):
     text = font.render(entity.name, True, WHITE)
     text_width = text.get_width()
-    text_rect = text.get_rect(center=(entity.x*20 + 10, entity.y*20 - offset_y))
-    screen.blit(text, (entity.x*20 + 10 - text_width // 2, entity.y*20 - offset_y))
+    text_rect = text.get_rect(center=(entity.x + 1, entity.y - offset_y))
+    screen.blit(text, (entity.x + 1 - text_width // 2, entity.y - offset_y))
 
 def GetEnemyFromTier(tier):
     if tier >= 3:
@@ -455,8 +455,6 @@ def draw_game_based_on_visibility(screen, map_grid, visibility_grid, entities_li
         if not (0 <= entity.y < len(visibility_grid) and 0 <= entity.x < len(visibility_grid[0])): continue
         if visibility_grid[entity.y][entity.x]:
             pygame.draw.rect(screen, entity.color, pygame.Rect(entity.x * TILESIZE, entity.y * TILESIZE, TILESIZE, TILESIZE))
-            if not isinstance(entity, itm.Item):
-                draw_name_tag(screen, font, entity)
 
 def draw_hud(screen, font, player, floor):
     hud_rect = pygame.Rect(0, game_area_height, WIDTH, HUD_SIZE)
