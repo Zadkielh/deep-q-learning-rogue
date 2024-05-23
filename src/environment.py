@@ -4,6 +4,7 @@ import pygame
 from game import Engine, draw_game_based_on_visibility, step_game, render_game, ent, tiles, V_WIDTH, V_HEIGHT
 from objects.items import Food, HealthPotion
 from objects.ent_constants import SLOT_LHAND, SLOT_RHAND, SLOT_TWOHAND
+from objects.tiles import BLOCKED_TILES
 
 class RogueEnvironment:
     def __init__(self):
@@ -11,7 +12,7 @@ class RogueEnvironment:
         self.engine_data = Engine()
         self.action_space = 4  # Up, Down, Left, Right
         self.feature_size = 3
-        self.observation_space = ((V_HEIGHT, V_WIDTH, 3), (4, self.feature_size))
+        self.observation_space = ((V_HEIGHT, V_WIDTH), (4, self.feature_size))
         self.visited = set()  # To track visited tiles
         self.visit_counts = {}
         self.total_reward = 0
@@ -30,7 +31,9 @@ class RogueEnvironment:
         print(f"Taking action: {action}")
         player = self.engine_data['player']
         self.engine_data = step_game(self.engine_data, action)
-        next_tile = self._get_tile_from_action(player)
+        next_tile = self._get_tile_from_action(player.x, player.y)
+
+        action_type = self.get_action_valid(action)  # Determine the type of action
         
         self.action_history.append(action)
         if len(self.action_history) > 20:
@@ -39,7 +42,7 @@ class RogueEnvironment:
         self._check_and_equip_items()  # Check and equip items after picking them up
         self._check_and_use_health_items()  # Check and use health-restoring items
         
-        reward, done = self._compute_reward(next_tile)  # Updated to receive two values
+        reward, done = self._compute_reward(next_tile, action_type)  # Updated to receive two values
         if done:
             print("Ending episode due to low performance.")
         state = self._get_state()
@@ -48,22 +51,59 @@ class RogueEnvironment:
 
         return state, reward, done
     
-    def _get_tile_from_action(self, player):
-        return self.engine_data['map_grid'][player.y][player.x]
+    def get_action_valid(self, action):
+        actions = {
+            0: (0, -1), # Up
+            1: (0, 1), # Down
+            2: (-1, 0), # Left
+            3: (1, 0), # Right
+            }
+        if action in actions:
+            x = actions[action][0]
+            y = actions[action][1]
+            target_tile = self._get_tile_from_action(x, y)
+            if self.is_valid_move(target_tile, x, y):
+                return True
+        return False
+    
+    def _get_tile_from_action(self, x, y):
+        return self.engine_data['map_grid'][y][x]
+    
+    def is_valid_move(self, target_tile, x, y):
+        if 0 <= x < V_WIDTH and 0 <= y < V_HEIGHT:
+            if target_tile in BLOCKED_TILES:
+                return False
+            return True
+        return False
     
     def _smooth_delay(self, delay_time):
         end_time = time.time() + delay_time
         while time.time() < end_time:
             pygame.event.pump()
-            time.sleep(0.001)  # Sleep for 10 milliseconds
+            time.sleep(0.001)
+
+    def _convert_to_tile_based_representation(self):
+        map_grid = self.engine_data['map_grid']
+        visibility_grid = self.engine_data['visibility_grid']
+
+        tile_based_representation = self.engine_data['agent_grid']
+        
+        for y in range(len(map_grid)):
+            for x in range(len(map_grid[0])):
+                if visibility_grid[y][x]:  # If the tile is in the visibility grid
+                    tile_based_representation[y][x] = map_grid[y][x]
+        
+        return tile_based_representation
 
     def _get_state(self):
         player = self.engine_data['player']
 
         screen = pygame.Surface((V_WIDTH, V_HEIGHT))
         self.engine_data['old_visibility_grid'] = self.engine_data['visibility_grid']
+        
         draw_game_based_on_visibility(screen, self.engine_data['map_grid'], self.engine_data['visibility_grid'], self.engine_data['entities_list'])
-        full_map = pygame.surfarray.array3d(screen)
+
+        tile_based_representation = self._convert_to_tile_based_representation()
 
         # Get features of the neighboring tiles
         neighbors = [
@@ -73,30 +113,31 @@ class RogueEnvironment:
             self._get_tile_features(player.x + 1, player.y)   # Right
         ]
 
-        return (full_map, np.array(neighbors))
+        return (tile_based_representation, np.array(neighbors))
     
     def _get_tile_features(self, x, y):
         if 0 <= x < V_WIDTH and 0 <= y < V_HEIGHT:
             tile = self.engine_data['map_grid'][y][x]
-            tile_type = tile  # Assuming tile itself is an integer between 0-6
+            tile_type = tile
             
-            # Check if an entity is present
             entity_present = 0
-            entity_type = -1  # Default to -1 if no entity is present
+            entity_type = -1
             for entity in self.engine_data['entities_list']:
                 if entity.x == x and entity.y == y:
                     entity_present = 1
-                    entity_type = entity.type  # Assuming each entity has a 'type' attribute
+                    entity_type = entity.type
                     break
 
             return [tile_type, entity_present, entity_type]
         else:
-            # Handle out of bounds as a non-traversable or special tile
-            return [-1, 0, -1]
+            return [0, 0, -1]
 
-    def _compute_reward(self, tile):
+    def _compute_reward(self, tile, action_type):
         player = self.engine_data['player']
         reward = 0
+
+        # Give negative reward for attempting a non-valid action (like moving into a wall or a void)
+        if not action_type: reward -= 1
 
         # Check if the current tile has been visited
         current_pos = (player.x, player.y)
@@ -114,12 +155,7 @@ class RogueEnvironment:
         else:
             self.visit_counts[current_pos] += 1
             if self.visit_counts[current_pos] > 50:  # Threshold for penalizing repetitive visits
-                reward -= 0.1  # Penalize revisiting the same tile
-
-        # Negative Reward for staying at the same coordinates
-        last_pos = (player.lastx, player.lasty)
-        if (current_pos == last_pos):
-            reward -= 0.1
+                reward -= 0  # Penalize revisiting the same tile
 
         # Reward for revealing more tiles
         old_data = sum(len(sublist) for sublist in self.engine_data['old_visibility_grid'])
@@ -127,7 +163,7 @@ class RogueEnvironment:
         if (new_data > old_data):
             diff = new_data - old_data
             # Reward 5 points for each tile revealed
-            reward += int(diff)*5
+            reward += int(diff)*1
 
         if not player.isAlive:
             reward -= 1000  # High negative reward for death
@@ -154,7 +190,7 @@ class RogueEnvironment:
 
         # Check for repetitive actions
         if len(set(self.action_history)) == 1 and len(self.action_history) == 20:
-            reward -= 50  # Apply a penalty for repetitive actions
+            reward -= 10  # Apply a penalty for repetitive actions
             print("Penalty applied for repetitive behavior.")
 
         self.total_reward += reward
@@ -169,18 +205,21 @@ class RogueEnvironment:
         for item in player.inventory:
             if item.canWield:
                 currently_equipped = player.equipped[item.slot]
+                other_equipped = None
+                wield = False
+                
+                # Special handling for two-handed items
+                if item.slot == SLOT_TWOHAND:
+                    currently_equipped = player.equipped[item.slot]
+                    if currently_equipped and item.name == currently_equipped.name:
+                        continue
+                    if currently_equipped is None:
+                        currently_equipped = player.equipped[SLOT_RHAND]
+                        other_equipped = player.equipped[SLOT_LHAND]
+
                 if currently_equipped:
-                    if item.name == currently_equipped.name: continue
-                    other_equipped = None
-                    # Two hand items
-                    if item.slot == SLOT_TWOHAND:
-                        # Check if we have a two-hand item equipped first
-                        currently_equipped = player.equipped[item.slot]
-                        if item.name == currently_equipped.name: continue
-                        # If we don't check the hands
-                        if currently_equipped == None:
-                            currently_equipped = player.equipped[SLOT_RHAND]
-                            other_equipped = player.equipped[SLOT_LHAND]
+                    if item.name == currently_equipped.name:
+                        continue
 
                     weights = {
                         'damage': 2,
@@ -190,30 +229,28 @@ class RogueEnvironment:
                         'agility': 2
                     }
 
-                    value = 0
-                    for stat, weight in weights.items():
-                        stat_value = getattr(item, stat, 0)
-                        value += stat_value * weight
+                    value = sum(getattr(item, stat, 0) * weight for stat, weight in weights.items())
+                    old_value = sum(getattr(currently_equipped, stat, 0) * weight for stat, weight in weights.items())
 
-                    old_value = 0
-                    for stat, weight in weights.items():
-                        stat_value = getattr(currently_equipped, stat, 0)
-                        old_value += stat_value * weight
-
-                    # Get value of other hand too
                     if other_equipped:
-                        for stat, weight in weights.items():
-                            stat_value = getattr(other_equipped, stat, 0)
-                            old_value += stat_value * weight
+                        old_value += sum(getattr(other_equipped, stat, 0) * weight for stat, weight in weights.items())
 
-                    wield = False
                     if value > old_value:
                         wield = True
                 else:
                     wield = True
+
                 if wield:
                     player.Equip(item, self.engine_data['notification_manager'])
-                    return
+                    return  # Equip only one item per call to avoid conflicts
+
+        # Check shields or one-handed items if nothing was equipped
+        for item in player.inventory:
+            if item.canWield:
+                currently_equipped = player.equipped[item.slot]
+                if currently_equipped is None:
+                    player.Equip(item, self.engine_data['notification_manager'])
+                    return  # Equip only one item per call to avoid conflicts
 
     def _check_and_use_health_items(self):
         player = self.engine_data['player']

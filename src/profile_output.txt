@@ -1,0 +1,60 @@
+Thu May 23 17:50:08 2024    profile_output
+
+         2687218 function calls (2632626 primitive calls) in 27.987 seconds
+
+   Ordered by: cumulative time
+   List reduced from 3940 to 50 due to restriction <50>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+   1383/1    0.086    0.000   27.994   27.994 {built-in method builtins.exec}
+        1    0.073    0.073   27.994   27.994 C:\Users\olemagnus\Documents\GitHub\deep-q-learning-rogue\src\deep_q_learning.py:121(run_training)
+      685    0.432    0.001   15.636    0.023 C:\Users\olemagnus\Documents\GitHub\deep-q-learning-rogue\src\deep_q_learning.py:81(replay)
+     3302   10.361    0.003   10.361    0.003 {built-in method numpy.array}
+      685    0.440    0.001    4.743    0.007 C:\Users\olemagnus\Documents\GitHub\deep-q-learning-rogue\src\environment.py:266(render)
+      685    0.028    0.000    4.303    0.006 C:\Users\olemagnus\Documents\GitHub\deep-q-learning-rogue\src\game.py:638(render_game)
+      655    0.009    0.000    2.920    0.004 C:\Users\olemagnus\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\_compile.py:20(inner)
+        1    0.000    0.000    2.696    2.696 C:\Users\olemagnus\Documents\GitHub\deep-q-learning-rogue\src\deep_q_learning.py:51(__init__)
+      685    0.019    0.000    2.685    0.004 C:\Users\olemagnus\Documents\GitHub\deep-q-learning-rogue\src\environment.py:30(step)
+        1    0.000    0.000    2.482    2.482 C:\Users\olemagnus\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\optim\adam.py:15(__init__)
+        1    0.000    0.000    2.482    2.482 C:\Users\olemagnus\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\optim\optimizer.py:250(__init__)
+   3386/1    0.012    0.000    2.481    2.481 <frozen importlib._bootstrap>:1165(_find_and_load)
+    740/1    0.006    0.000    2.481    2.481 <frozen importlib._bootstrap>:1120(_find_and_load_unlocked)
+    712/1    0.004    0.000    2.480    2.480 <frozen importlib._bootstrap>:666(_load_unlocked)
+    712/1    0.003    0.000    2.480    2.480 <frozen importlib._bootstrap_external>:934(exec_module)
+   1629/3    0.002    0.000    2.480    0.827 <frozen importlib._bootstrap>:233(_call_with_frames_removed)
+        1    0.000    0.000    2.479    2.479 C:\Users\olemagnus\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\_dynamo\__init__.py:1(<module>)
+      685    2.185    0.003    2.185    0.003 {built-in method pygame.transform.scale}
+     5508    2.031    0.000    2.034    0.000 {method 'to' of 'torch._C.TensorBase' objects}
+      685    0.283    0.000    1.999    0.003 C:\Users\olemagnus\Documents\GitHub\deep-q-learning-rogue\src\deep_q_learning.py:69(act)
+23599/2419    0.058    0.000    1.688    0.001 C:\Users\olemagnus\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\nn\modules\module.py:1528(_wrapped_call_impl)
+23599/2419    0.111    0.000    1.676    0.001 C:\Users\olemagnus\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\nn\modules\module.py:1534(_call_impl)
+   813/44    0.003    0.000    1.645    0.037 <frozen importlib._bootstrap>:1207(_handle_fromlist)
+    176/3    0.001    0.000    1.645    0.548 {built-in method builtins.__import__}
+        1    0.000    0.000    1.639    1.639 C:\Users\olemagnus\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\_dynamo\convert_frame.py:1(<module>)
+     1765    0.036    0.000    1.544    0.001 C:\Users\olemagnus\Documents\GitHub\deep-q-learning-rogue\src\deep_q_learning.py:40(forward)
+     1371    0.836    0.001    1.519    0.001 C:\Users\olemagnus\Documents\GitHub\deep-q-learning-rogue\src\game.py:435(draw_game_based_on_visibility)
+     5295    0.071    0.000    1.361    0.000 C:\Users\olemagnus\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\nn\modules\container.py:215(forward)
+      654    0.007    0.000    1.281    0.002 C:\Users\olemagnus\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\_tensor.py:466(backward)
+      654    0.011    0.000    1.274    0.002 C:\Users\olemagnus\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\autograd\__init__.py:165(backward)
+      654    0.008    0.000    1.212    0.002 C:\Users\olemagnus\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\autograd\graph.py:739(_engine_run_backward)
+      654    1.203    0.002    1.203    0.002 {method 'run_backward' of 'torch._C._EngineBase' objects}
+      656    0.007    0.000    1.154    0.002 C:\Users\olemagnus\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\_dynamo\decorators.py:36(disable)
+      656    0.022    0.000    1.129    0.002 C:\Users\olemagnus\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\_dynamo\eval_frame.py:351(__call__)
+      686    0.017    0.000    1.122    0.002 C:\Users\olemagnus\Documents\GitHub\deep-q-learning-rogue\src\environment.py:98(_get_state)
+      685    0.007    0.000    0.935    0.001 C:\Users\olemagnus\Documents\GitHub\deep-q-learning-rogue\src\environment.py:79(_smooth_delay)
+      656    0.002    0.000    0.911    0.001 C:\Users\olemagnus\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\_dynamo\trace_rules.py:3377(check)
+      656    0.010    0.000    0.909    0.001 C:\Users\olemagnus\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\_dynamo\trace_rules.py:3342(check_verbose)
+      685    0.905    0.001    0.905    0.001 {built-in method time.sleep}
+      656    0.006    0.000    0.875    0.001 C:\Users\olemagnus\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\_dynamo\trace_rules.py:3432(lookup_inner)
+        1    0.000    0.000    0.852    0.852 C:\Users\olemagnus\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\fx\experimental\symbolic_shapes.py:1(<module>)
+     7060    0.041    0.000    0.848    0.000 C:\Users\olemagnus\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\nn\modules\linear.py:115(forward)
+        1    0.003    0.003    0.836    0.836 C:\Users\olemagnus\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\_dynamo\trace_rules.py:2777(get_torch_obj_rule_map)
+     2642    0.005    0.000    0.833    0.000 C:\Users\olemagnus\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\_dynamo\trace_rules.py:2803(load_object)
+        1    0.000    0.000    0.821    0.821 C:\Users\olemagnus\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\utils\_sympy\functions.py:1(<module>)
+        1    0.000    0.000    0.814    0.814 C:\Users\olemagnus\AppData\Local\Programs\Python\Python311\Lib\site-packages\sympy\__init__.py:1(<module>)
+     7060    0.792    0.000    0.792    0.000 {built-in method torch._C._nn.linear}
+2651/2645    0.003    0.000    0.757    0.000 C:\Users\olemagnus\AppData\Local\Programs\Python\Python311\Lib\importlib\__init__.py:108(import_module)
+2653/2645    0.003    0.000    0.753    0.000 <frozen importlib._bootstrap>:1192(_gcd_import)
+     2642    0.003    0.000    0.744    0.000 C:\Users\olemagnus\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\_dynamo\trace_rules.py:2793(_load_obj_from_str)
+
+

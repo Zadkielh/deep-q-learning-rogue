@@ -9,36 +9,28 @@ from environment import RogueEnvironment
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import seaborn as sns
+import cProfile
+import pstats
 
 class DQN(nn.Module):
     def __init__(self, map_input_dim, tile_input_dim, output_dim):
         super(DQN, self).__init__()
-        # Convolutional layers for the full map
-        self.conv1 = nn.Conv2d(3, 32, kernel_size=8, stride=4)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
-        self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
 
-        def conv2d_size_out(size, kernel_size=8, stride=4):
-            return (size - (kernel_size - 1) - 1) // stride + 1
-
-        convw = conv2d_size_out(conv2d_size_out(conv2d_size_out(map_input_dim[1], 8, 4), 4, 2), 3, 1)
-        convh = conv2d_size_out(conv2d_size_out(conv2d_size_out(map_input_dim[0], 8, 4), 4, 2), 3, 1)
-        linear_input_size = convw * convh * 64
-
-        self.map_head = nn.Sequential(
+        map_input_size = map_input_dim[0] * map_input_dim[1]
+        
+        self.map_fc = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(linear_input_size, 256),
+            nn.Linear(map_input_size, 256),
             nn.ReLU()
         )
         
-        # Fully connected layers for the neighboring tile features
+        
         self.tile_fc = nn.Sequential(
             nn.Flatten(),
             nn.Linear(tile_input_dim[0] * tile_input_dim[1], 256),
             nn.ReLU()
         )
-        
-        # Combining both inputs
+
         self.combined_fc = nn.Sequential(
             nn.Linear(512, 256),
             nn.ReLU(),
@@ -46,11 +38,7 @@ class DQN(nn.Module):
         )
 
     def forward(self, map_input, tile_input):
-        map_output = F.relu(self.conv1(map_input))
-        map_output = F.relu(self.conv2(map_output))
-        map_output = F.relu(self.conv3(map_output))
-        map_output = self.map_head(map_output)
-        
+        map_output = self.map_fc(map_input)
         tile_output = self.tile_fc(tile_input)
         
         combined = torch.cat((map_output, tile_output), dim=1)
@@ -66,13 +54,13 @@ class DQNAgent:
         self.target_model.load_state_dict(self.model.state_dict())
         self.target_model.eval()
 
-        self.memory = deque(maxlen=6000)
+        self.memory = deque(maxlen=10000)
         self.optimizer = optim.Adam(self.model.parameters(), lr=0.0001)
         self.criterion = nn.MSELoss()
         self.gamma = 0.99
         self.batch_size = 128
         self.epsilon = 1.0
-        self.epsilon_decay = 0.995
+        self.epsilon_decay = 0.9999
         self.epsilon_min = 0.1
 
     def remember(self, state, action, reward, next_state, done):
@@ -80,12 +68,14 @@ class DQNAgent:
 
     def act(self, state):
         map_input, tile_input = state
+        #print("Tile: ", tile_input)
         if np.random.rand() <= self.epsilon:
             return random.randrange(4)
         map_input = torch.FloatTensor(map_input).unsqueeze(0).to(device)
         tile_input = torch.FloatTensor(tile_input).unsqueeze(0).to(device)
         with torch.no_grad():
             q_values = self.model(map_input, tile_input)
+        
         return torch.argmax(q_values[0]).item()
 
     def replay(self):
@@ -94,16 +84,23 @@ class DQNAgent:
         batch = random.sample(self.memory, self.batch_size)
         states, actions, rewards, next_states, dones = zip(*batch)
 
-        map_states = torch.FloatTensor(np.array([s[0] for s in states])).to(device)
-        tile_states = torch.FloatTensor(np.array([s[1] for s in states])).to(device)
-        actions = torch.LongTensor(np.array(actions)).to(device)
-        rewards = torch.FloatTensor(np.array(rewards)).to(device)
-        map_next_states = torch.FloatTensor(np.array([s[0] for s in next_states])).to(device)
-        tile_next_states = torch.FloatTensor(np.array([s[1] for s in next_states])).to(device)
-        dones = torch.FloatTensor(np.array(dones)).to(device)
+        # Split state into map_states and tile_states for current states and next states
+        map_states = np.array([s[0] for s in states])
+        tile_states = np.array([s[1] for s in states])
+        map_next_states = np.array([s[0] for s in next_states])
+        tile_next_states = np.array([s[1] for s in next_states])
+        
+        # Convert to tensors in a single operation
+        map_states = torch.FloatTensor(map_states).to(device)
+        tile_states = torch.FloatTensor(tile_states).to(device)
+        actions = torch.LongTensor(actions).to(device)
+        rewards = torch.FloatTensor(rewards).to(device)
+        map_next_states = torch.FloatTensor(map_next_states).to(device)
+        tile_next_states = torch.FloatTensor(tile_next_states).to(device)
+        dones = torch.FloatTensor(dones).to(device)
 
-        q_values = self.model(map_states, tile_states)
-        next_q_values = self.target_model(map_next_states, tile_next_states)
+        q_values = self.model(map_states, tile_states)  # Feed both map and tile inputs to the model
+        next_q_values = self.target_model(map_next_states, tile_next_states)  # Feed both map and tile inputs to the target model
 
         q_values = q_values.gather(1, actions.unsqueeze(1)).squeeze(1)
         next_q_values = next_q_values.max(1)[0]
@@ -120,61 +117,51 @@ class DQNAgent:
     def update_target_model(self):
         self.target_model.load_state_dict(self.model.state_dict())
 
-
-def visualize_q_values(agent, state):
-    map_input, tile_input = state
-    map_input = torch.FloatTensor(map_input).unsqueeze(0).to(device)
-    tile_input = torch.FloatTensor(tile_input).unsqueeze(0).to(device)
-    with torch.no_grad():
-        q_values = agent.model(map_input, tile_input)
-    q_values = q_values[0].cpu().numpy()
-
-    sns.heatmap(q_values.reshape((1, -1)), annot=True, cmap="coolwarm")
-    plt.xlabel('Actions')
-    plt.ylabel('Q-value')
-    plt.title('Q-values for Current State')
-    plt.show()
-
 # Training the agent
+def run_training():
+    map_input_dim = (V_HEIGHT, V_WIDTH)  # Height, Width, Channels for the game map
+    tile_input_dim = (4, 3)  # 4 neighboring tiles, each with 3 features (tile type, entity present, entity type)
+    output_dim = 4  # Number of possible actions
 
-map_input_dim = (V_HEIGHT, V_WIDTH, 3)  # Height, Width, Channels for the game map
-tile_input_dim = (4, 3)  # 4 neighboring tiles, each with 3 features (tile type, entity present, entity type)
-output_dim = 4  # Number of possible actions
+    env = RogueEnvironment()
+    print("Environment initialized")
+    agent = DQNAgent(map_input_dim, tile_input_dim, output_dim)
+    print("Agent initialized")
+    episodes = 100
 
-env = RogueEnvironment()
-print("Environment initialized")
-agent = DQNAgent(map_input_dim, tile_input_dim, output_dim)
-print("Agent initialized")
-episodes = 100
+    for e in range(episodes):
+        print(f"Starting episode {e}")
+        state = env.reset()
+        full_map, neighbors = state
+        state = (full_map, neighbors)
+        done = False
+        total_reward = 0
+        step_count = 0
 
-for e in range(episodes):
-    print(f"Starting episode {e}")
-    state = env.reset()
-    full_map, neighbors = state
-    full_map = np.transpose(full_map, (2, 0, 1))  # For channels-first format expected by Conv2D
-    state = (full_map, neighbors)
-    done = False
-    total_reward = 0
-    step_count = 0
+        while not done:
+            action = agent.act(state)
+            print(f"Episode: {e}, Step: {step_count}, Action: {action}, Total Reward: {total_reward}, Epsilon: {agent.epsilon:.2f}")
+            next_state, reward, done = env.step(action)
+            next_full_map, next_neighbors = next_state
+            next_state = (next_full_map, next_neighbors)
+            agent.remember(state, action, reward, next_state, done)
+            state = next_state
+            total_reward += reward
+            agent.replay()
 
-    while not done:
-        action = agent.act(state)
-        print(f"Episode: {e}, Step: {step_count}, Action: {action}, Total Reward: {total_reward}")
-        next_state, reward, done = env.step(action)
-        next_full_map, next_neighbors = next_state
-        next_full_map = np.transpose(next_full_map, (2, 0, 1))
-        next_state = (next_full_map, next_neighbors)
-        agent.remember(state, action, reward, next_state, done)
-        state = next_state
-        total_reward += reward
-        agent.replay()
+            env.render()
+            step_count += 1
 
-        env.render()
-        step_count += 1
+        agent.update_target_model()
+        print(f"Episode: {e}/{episodes}, Total Reward: {total_reward}, Epsilon: {agent.epsilon:.2f}")
 
-    agent.update_target_model()
-    print(f"Episode: {e}/{episodes}, Total Reward: {total_reward}, Epsilon: {agent.epsilon:.2f}")
+        if e % 10 == 0:
+            torch.save(agent.model.state_dict(), f"dqn_model_{e}.pth")
 
-    if e % 10 == 0:
-        torch.save(agent.model.state_dict(), f"dqn_model_{e}.pth")
-        visualize_q_values(agent, state)
+# Profile the run_training function
+cProfile.run('run_training()', 'profile_output')
+
+# Analyze the profiling results
+with open('profile_output.txt', 'w') as f:
+    p = pstats.Stats('profile_output', stream=f)
+    p.sort_stats('cumulative').print_stats(50)  # Print top 50 cumulative time functions

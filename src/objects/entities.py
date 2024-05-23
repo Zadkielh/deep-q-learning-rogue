@@ -174,6 +174,8 @@ class Player(Entity):
             elif slot == SLOT_RHAND or slot == SLOT_LHAND:
                 self.equipped[SLOT_TWOHAND] = None
                 self.equipped[slot] = item
+                notification_manager.add_notification(f"You have equipped {item.name}.")
+                return True
             else:
                 self.equipped[slot] = item
                 notification_manager.add_notification(f"You have equipped {item.name}.")
@@ -307,7 +309,7 @@ class Player(Entity):
                 damage = target.DoMitigation(damage)
 
                 target.lastHealth = target.health
-                
+
                 target.health = target.health - max(0, damage)
                 notification_manager.add_notification(f"{self.name} struck {target.name} dealing {damage} damage!")
             else:
@@ -384,6 +386,7 @@ class Enemy(Entity):
         self.DoCombat(caller, notification_manager)
     
     def DoCombat(self, target, notification_manager):
+        if not self.isAlive: return
         if isinstance(target, Player):
             # Attacker Stats
             damage = self.GetDamage()

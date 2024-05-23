@@ -572,6 +572,7 @@ def Engine():
     engine_data['notification_manager'] = NotificationManager(hud_font)
     engine_data['floor'] = 1
     engine_data['map_grid'], engine_data['rooms'] = make_map(MAX_ROOMS, ROOM_SIZE_MIN, ROOM_SIZE_MAX)
+    engine_data['agent_grid'] = [[-1 for _ in range(len(engine_data['map_grid'][0]))] for _ in range(len(engine_data['map_grid']))]
     engine_data['player'] = ent.Player(0, 0)
 
     # Give starter items to player
@@ -631,10 +632,11 @@ def step_game(engine_data, action):
     if engine_data['map_grid'][player.y][player.x] == tiles.STAIRS:
         # Go to next level
         engine_data['map_grid'], engine_data['rooms'], engine_data['entities_list'], engine_data['floor'], engine_data['visibility_grid'] = NextLevel(player, engine_data['floor'], engine_data['entities_list'], engine_data['notification_manager'])
-        
+    
     return engine_data
 
 def render_game(engine_data):
+    engine_data['notification_manager'].update()
     virtual_display.fill((0, 0, 0))
     draw_game_based_on_visibility(virtual_display, engine_data['map_grid'], engine_data['visibility_grid'], engine_data['entities_list'])
     scaled_display = pygame.transform.scale(virtual_display, (WIDTH, HEIGHT))
@@ -642,3 +644,5 @@ def render_game(engine_data):
     draw_hud(screen, hud_font, engine_data['player'], engine_data['floor'])
     engine_data['notification_manager'].draw(screen)
     pygame.display.flip()
+    
+    engine_data['clock'].tick()
