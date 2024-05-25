@@ -136,6 +136,13 @@ test_states = [
     create_test_state(wall_tile, floor_tile, door_tile, goal_tile),
 ]
 
+def plot_q_values_over_time(q_values_history):
+    for episode, df in q_values_history:
+        plt.figure(figsize=(10, 6))
+        sns.heatmap(df, annot=True, fmt=".2f", cmap="YlGnBu")
+        plt.title(f"Q-values at Episode {episode}")
+        plt.show()
+
 # Training the agent
 def run_training():
     map_input_dim = (V_HEIGHT, V_WIDTH)  # Height, Width, Channels for the game map
@@ -147,6 +154,8 @@ def run_training():
     agent = DQNAgent(tile_input_dim, output_dim)
     print("Agent initialized")
     episodes = 100
+
+    q_values_history = []
 
     for e in range(episodes):
         print(f"Starting episode {e}")
@@ -170,130 +179,7 @@ def run_training():
         agent.update_target_model()
         print(f"Episode: {e}/{episodes}, Total Reward: {total_reward}, Epsilon: {agent.epsilon:.2f}")
 
-        q_values_list = []
-        for i, state in enumerate(test_states):
-            state_tensor = torch.FloatTensor(state).unsqueeze(0).to(device)
-            q_values = agent.model(state_tensor).cpu().detach().numpy().flatten()
-            q_values_list.append(q_values)
-
-        # Create a DataFrame to display Q-values
-        df = pd.DataFrame(q_values_list, columns=['Up', 'Down', 'Left', 'Right'])
-        df.index.name = 'Test State'
-        print(df)
-            
-            #torch.save(agent.model.state_dict(), f"dqn_model_{e}.pth")
-
-
-
-class SimpleTestEnvironment:
-    def __init__(self):
-        self.map_grid = np.array([
-            [2, 2, 2, 2, 2],
-            [2, 1, 1, 1, 2],
-            [2, 1, 1, 1, 2],
-            [2, 1, 1, 1, 2],
-            [2, 2, 2, 2, 2]
-        ])  # 2: Wall, 1: Floor, 3: Goal
-        self.player_pos = (2, 2)
-        self.visited = set()
-        self.total_reward = 0
-
-    def reset(self):
-        self.player_pos = (2, 2)
-        self.visited.clear()
-        self.total_reward = 0
-
-        self.map_grid = np.array([
-            [2, 2, 2, 2, 2],
-            [2, 1, 1, 1, 2],
-            [2, 1, 1, 1, 2],
-            [2, 1, 1, 1, 2],
-            [2, 2, 2, 2, 2]
-        ])
-
-        floor_tiles = [(x, y) for x in range(1, 4) for y in range(1, 4)]
-
-        self.goal_pos = floor_tiles[np.random.randint(len(floor_tiles))]
-        self.map_grid[self.goal_pos[1], self.goal_pos[0]] = 3
-        
-        return self._get_state()
-
-    def _get_state(self):
-        x, y = self.player_pos
-        neighbors = [
-            self._get_tile_features(x, y - 1),  # Up
-            self._get_tile_features(x, y + 1),  # Down
-            self._get_tile_features(x - 1, y),  # Left
-            self._get_tile_features(x + 1, y)   # Right
-        ]
-        return np.array(neighbors)
-
-    def _get_tile_features(self, x, y):
-        if 0 <= x < self.map_grid.shape[0] and 0 <= y < self.map_grid.shape[1]:
-            tile = self.map_grid[y, x]
-            tile_type = tile
-            entity_present = 0
-            entity_type = -1
-            return [tile_type, entity_present, entity_type]
-        else:
-            return [0, 0, -1]
-
-    def step(self, action):
-        x, y = self.player_pos
-        if action == 0 and y > 0:  # Up
-            self.player_pos = (x, y - 1)
-        elif action == 1 and y < self.map_grid.shape[1] - 1:  # Down
-            self.player_pos = (x, y + 1)
-        elif action == 2 and x > 0:  # Left
-            self.player_pos = (x - 1, y)
-        elif action == 3 and x < self.map_grid.shape[0] - 1:  # Right
-            self.player_pos = (x + 1, y)
-
-        reward, done = self._compute_reward()
-        state = self._get_state()
-        return state, reward, done
-
-    def _compute_reward(self):
-        x, y = self.player_pos
-        tile = self.map_grid[y, x]
-
-        if tile == 2:
-            return -2, False  # Wall
-        elif tile == 3:
-            return 15, True  # Goal
-        elif tile == 1:
-            return 0.1, False  # Floor tile
-
-def run_test_scenario(test_states):
-    tile_input_dim = (4, 3)  # 4 neighboring tiles, each with 3 features (tile type, entity present, entity type)
-    output_dim = 4  # Number of possible actions
-
-    agent = DQNAgent(tile_input_dim, output_dim)
-    
-    # Train the agent for a few episodes to ensure it has some learned Q-values
-    env = SimpleTestEnvironment()
-    episodes = 1000
-
-    q_values_history = []
-    
-    for e in range(episodes):
-        state = env.reset()
-        done = False
-        step_count = 0
-
-        while not done:
-            action = agent.act(state)
-            print(f"Episode: {e}, Step: {step_count}, Action: {action}, Epsilon: {agent.epsilon:.2f}")
-            next_state, reward, done = env.step(action)
-            agent.remember(state, action, reward, next_state, done)
-            state = next_state
-            agent.replay()
-
-            step_count += 1
-
-        agent.update_target_model()
-    
-    # Print Q-values for each test state in a table format
+        # Print Q-values for each test state in a table format
     
         # Save Q-values for each test state
         q_values_list = []
@@ -313,22 +199,12 @@ def run_test_scenario(test_states):
 
     # Plot Q-values changes over time
     plot_q_values_over_time(q_values_history)
+            
+            #torch.save(agent.model.state_dict(), f"dqn_model_{e}.pth")
 
-def plot_q_values_over_time(q_values_history):
-    for episode, df in q_values_history:
-        plt.figure(figsize=(10, 6))
-        sns.heatmap(df, annot=True, fmt=".2f", cmap="YlGnBu")
-        plt.title(f"Q-values at Episode {episode}")
-        plt.show()
+cProfile.run('run_training()', 'profile_output')
 
-test = False
-if test:
-    run_test_scenario(test_states)
-else:
-    # Profile the run_training function
-    cProfile.run('run_training()', 'profile_output')
-
-    # Analyze the profiling results
-    with open('profile_output.txt', 'w') as f:
-        p = pstats.Stats('profile_output', stream=f)
-        p.sort_stats('cumulative').print_stats(50)  # Print top 50 cumulative time functions
+# Analyze the profiling results
+with open('profile_output.txt', 'w') as f:
+    p = pstats.Stats('profile_output', stream=f)
+    p.sort_stats('cumulative').print_stats(50)  # Print top 50 cumulative time functions
