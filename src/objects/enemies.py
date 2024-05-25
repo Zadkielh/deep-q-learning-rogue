@@ -50,7 +50,7 @@ class Skeleton(Enemy):
 class SkeletonSS(Skeleton):
     def __init__(self, x, y):
         super().__init__(x, y)
-        self.name = "Warrior Skeleton"
+        self.name = "Skeleton Warrior"
         self.health = 5
         self.armor = 2
         self.strength = 5
@@ -66,7 +66,7 @@ class SkeletonSS(Skeleton):
 class SkeletonBow(Skeleton):
     def __init__(self, x, y):
         super().__init__(x, y)
-        self.name = "Archer Skeleton"
+        self.name = "Skeleton Archer"
         self.health = 3
         self.strength = 2
         self.dexterity = 5

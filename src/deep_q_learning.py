@@ -7,11 +7,12 @@ import numpy as np
 from collections import deque
 from environment import RogueEnvironment
 import torch.nn.functional as F
-import matplotlib.pyplot as plt
-import seaborn as sns
 import cProfile
 import pstats
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pickle
 
 class DQN(nn.Module):
     def __init__(self, tile_input_dim, output_dim):
@@ -145,7 +146,7 @@ def run_training():
     print("Environment initialized")
     agent = DQNAgent(tile_input_dim, output_dim)
     print("Agent initialized")
-    episodes = 1000
+    episodes = 100
 
     for e in range(episodes):
         print(f"Starting episode {e}")
@@ -169,20 +170,18 @@ def run_training():
         agent.update_target_model()
         print(f"Episode: {e}/{episodes}, Total Reward: {total_reward}, Epsilon: {agent.epsilon:.2f}")
 
-        #if e % 10 == 0:
+        q_values_list = []
+        for i, state in enumerate(test_states):
+            state_tensor = torch.FloatTensor(state).unsqueeze(0).to(device)
+            q_values = agent.model(state_tensor).cpu().detach().numpy().flatten()
+            q_values_list.append(q_values)
+
+        # Create a DataFrame to display Q-values
+        df = pd.DataFrame(q_values_list, columns=['Up', 'Down', 'Left', 'Right'])
+        df.index.name = 'Test State'
+        print(df)
+            
             #torch.save(agent.model.state_dict(), f"dqn_model_{e}.pth")
-
-    # Print Q-values for each test state in a table format
-    q_values_list = []
-    for i, state in enumerate(test_states):
-        state_tensor = torch.FloatTensor(state).unsqueeze(0).to(device)
-        q_values = agent.model(state_tensor).cpu().detach().numpy().flatten()
-        q_values_list.append(q_values)
-
-    # Create a DataFrame to display Q-values
-    df = pd.DataFrame(q_values_list, columns=['Up', 'Down', 'Left', 'Right'])
-    df.index.name = 'Test State'
-    print(df)
 
 
 
@@ -275,6 +274,8 @@ def run_test_scenario(test_states):
     env = SimpleTestEnvironment()
     episodes = 1000
 
+    q_values_history = []
+    
     for e in range(episodes):
         state = env.reset()
         done = False
@@ -293,18 +294,32 @@ def run_test_scenario(test_states):
         agent.update_target_model()
     
     # Print Q-values for each test state in a table format
-    q_values_list = []
-    for i, state in enumerate(test_states):
-        state_tensor = torch.FloatTensor(state).unsqueeze(0).to(device)
-        q_values = agent.model(state_tensor).cpu().detach().numpy().flatten()
-        q_values_list.append(q_values)
+    
+        # Save Q-values for each test state
+        q_values_list = []
+        for i, state in enumerate(test_states):
+            state_tensor = torch.FloatTensor(state).unsqueeze(0).to(device)
+            q_values = agent.model(state_tensor).cpu().detach().numpy().flatten()
+            q_values_list.append(q_values)
 
-    # Create a DataFrame to display Q-values
-    df = pd.DataFrame(q_values_list, columns=['Up', 'Down', 'Left', 'Right'])
-    df.index.name = 'Test State'
-    print(df)
+        # Create a DataFrame to display Q-values
+        df = pd.DataFrame(q_values_list, columns=['Up', 'Down', 'Left', 'Right'])
+        df.index.name = 'Test State'
+        q_values_history.append((e, df))  # Append the Q-values DataFrame with the episode number
 
+    # Save the Q-values history to a file
+    with open('q_values_history.pkl', 'wb') as f:
+        pickle.dump(q_values_history, f)
 
+    # Plot Q-values changes over time
+    plot_q_values_over_time(q_values_history)
+
+def plot_q_values_over_time(q_values_history):
+    for episode, df in q_values_history:
+        plt.figure(figsize=(10, 6))
+        sns.heatmap(df, annot=True, fmt=".2f", cmap="YlGnBu")
+        plt.title(f"Q-values at Episode {episode}")
+        plt.show()
 
 test = False
 if test:
