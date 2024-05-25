@@ -208,6 +208,11 @@ class RogueEnvironment:
         for item in player.inventory:
             if item.canWield:
                 currently_equipped = player.equipped[item.slot]
+
+                # Check if the item is one handed
+                if item.slot == SLOT_LHAND or item.slot == SLOT_RHAND:
+                    # If we don't have anything equipped here, check two handed
+                    if not currently_equipped: currently_equipped = player.equipped[SLOT_TWOHAND]
                 other_equipped = None
                 wield = False
                 
@@ -244,14 +249,6 @@ class RogueEnvironment:
                     wield = True
 
                 if wield:
-                    player.Equip(item, self.engine_data['notification_manager'])
-                    return  # Equip only one item per call to avoid conflicts
-
-        # Check shields or one-handed items if nothing was equipped
-        for item in player.inventory:
-            if item.canWield:
-                currently_equipped = player.equipped[item.slot]
-                if currently_equipped is None:
                     player.Equip(item, self.engine_data['notification_manager'])
                     return  # Equip only one item per call to avoid conflicts
 
