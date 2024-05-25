@@ -311,7 +311,7 @@ class Player(Entity):
                 target.lastHealth = target.health
 
                 target.health = target.health - max(0, damage)
-                notification_manager.add_notification(f"{self.name} struck {target.name} dealing {damage} damage!")
+                notification_manager.add_notification(f"{self.name} struck {target.name} dealing {max(0, damage)} damage!")
             else:
                 notification_manager.add_notification(f"{self.name} misses {target.name}!")
 
@@ -409,7 +409,7 @@ class Enemy(Entity):
                 # Do extra damage adjustments if applicable
                 damage = target.DoMitigation(damage)
                 target.health = target.health - max(0, damage)
-                notification_manager.add_notification(f"{self.name} struck {target.name} dealing {damage} damage!")
+                notification_manager.add_notification(f"{self.name} struck {target.name} dealing {max(0, damage)} damage!")
             else:
                 notification_manager.add_notification(f"{self.name} misses {target.name}!")
 

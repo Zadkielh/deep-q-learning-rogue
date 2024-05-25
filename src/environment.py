@@ -11,7 +11,7 @@ class RogueEnvironment:
         print("Initializing environment")
         self.engine_data = Engine()
         self.action_space = 4  # Up, Down, Left, Right
-        self.feature_size = 3
+        self.feature_size = 5
         self.observation_space = ((4, self.feature_size))
         self.visited = set()  # To track visited tiles
         self.visit_counts = {}
@@ -24,6 +24,7 @@ class RogueEnvironment:
         self.visited.clear()
         self.visit_counts.clear()
         self.total_reward = 0
+        self.acummulated_penalty = 0
         self.action_history = []
         return self._get_state()
 
@@ -33,7 +34,7 @@ class RogueEnvironment:
         self.engine_data = step_game(self.engine_data, action)
         next_tile = self._get_tile_from_action(player.x, player.y)
 
-        action_type = self.get_action_valid(action)  # Determine the type of action
+        action_type = self.get_tile_valid(next_tile, player.x, player.y)  # Determine the type of action
         
         self.action_history.append(action)
         if len(self.action_history) > 20:
@@ -44,26 +45,16 @@ class RogueEnvironment:
         
         reward, done = self._compute_reward(next_tile, action_type)  # Updated to receive two values
         if done:
-            print("Ending episode due to low performance.")
+            print("Ending episode.")
         state = self._get_state()
 
         self._smooth_delay(0.001)
 
         return state, reward, done
     
-    def get_action_valid(self, action):
-        actions = {
-            0: (0, -1), # Up
-            1: (0, 1), # Down
-            2: (-1, 0), # Left
-            3: (1, 0), # Right
-            }
-        if action in actions:
-            x = actions[action][0]
-            y = actions[action][1]
-            target_tile = self._get_tile_from_action(x, y)
-            if self.is_valid_move(target_tile, x, y):
-                return True
+    def get_tile_valid(self, tile, x, y):
+        if self.is_valid_move(tile, x, y):
+            return True
         return False
     
     def _get_tile_from_action(self, x, y):
@@ -112,6 +103,18 @@ class RogueEnvironment:
         if 0 <= x < V_WIDTH and 0 <= y < V_HEIGHT:
             tile = self.engine_data['map_grid'][y][x]
             tile_type = tile
+
+            threshold = False
+
+            visited = True if (x, y) in self.visited else False
+            if tile in tiles.BLOCKED_TILES:
+                visited = True
+                threshold = True
+
+            
+            visit_count = self.visit_counts.get((x, y), 0)
+            if visited and not threshold:
+                threshold = visit_count > 20
             
             entity_present = 0
             entity_type = -1
@@ -121,16 +124,18 @@ class RogueEnvironment:
                     entity_type = entity.type
                     break
 
-            return [tile_type, entity_present, entity_type]
+            return [tile_type, entity_present, entity_type, visited, threshold]
         else:
-            return [0, 0, -1]
+            return [0, 0, -1, False, False, False]
 
     def _compute_reward(self, tile, action_type):
         player = self.engine_data['player']
         reward = 0
-
         # Give negative reward for attempting a non-valid action (like moving into a wall or a void)
-        if not action_type: reward -= 1
+        if not action_type: 
+            reward -= 4
+            # Higher penalty for void as it is less common
+            if tile == tiles.VOID: reward -= 0
 
         # Check if the current tile has been visited
         current_pos = (player.x, player.y)
@@ -138,17 +143,19 @@ class RogueEnvironment:
             reward += 1  # Increase reward for exploring new tiles
             # Give additional reward if visited a door for the first time
             if tile == tiles.DOOR:
-                reward += 3
+                reward += 0
             # Give additional smaller reward for visiting a tunnel tile for the first time
             elif tile == tiles.TUNNEL:
-                reward += 2
+                reward += 0
 
             self.visited.add(current_pos)
             self.visit_counts[current_pos] = 1
         else:
             self.visit_counts[current_pos] += 1
-            if self.visit_counts[current_pos] > 50:  # Threshold for penalizing repetitive visits
-                reward -= 0  # Penalize revisiting the same tile
+            if self.visit_counts[current_pos] > 20:  # Threshold for penalizing repetitive visits
+                reward -= 0.02
+            # Give very small penalty for revisiting tiles
+            reward -= 0.01  # Penalize revisiting the same tile
 
         # Reward for revealing more tiles
         old_data = sum(len(sublist) for sublist in self.engine_data['old_visibility_grid'])
@@ -159,36 +166,39 @@ class RogueEnvironment:
             reward += int(diff)*0
 
         if not player.isAlive:
-            reward -= 1000  # High negative reward for death
-        elif self.engine_data['map_grid'][player.y][player.x] == tiles.STAIRS:
-            reward += 1000  # High positive reward for reaching stairs
+            reward -= 300  # High negative reward for death
+        elif tile == tiles.STAIRS:
+            reward += 10  # High positive reward for reaching stairs
+            return reward, True
 
         # Reward for hurting an enemy
         for entity in self.engine_data['entities_list']:
             if isinstance(entity, ent.Enemy) and entity.isAlive:
                 if entity.lastHealth < entity.health:
-                    reward += 25
+                    reward += 0
 
         # Reward for killing an enemy
         for entity in self.engine_data['entities_list']:
             if isinstance(entity, ent.Enemy) and not entity.isAlive:
-                reward += 100
+                reward += 0
                 self.engine_data['entities_list'].remove(entity)
 
         # Reward for collecting an item
         for entity in self.engine_data['entities_list']:
             if isinstance(entity, ent.Item) and not entity.isAlive:
-                reward += 50
+                reward += 0
                 self.engine_data['entities_list'].remove(entity)
 
-        # Check for repetitive actions
-        if len(set(self.action_history)) == 1 and len(self.action_history) == 20:
-            reward -= 10  # Apply a penalty for repetitive actions
-            print("Penalty applied for repetitive behavior.")
-
+        if reward < 0:
+            self.acummulated_penalty += reward
+        else:
+            self.acummulated_penalty = 0
+        
         self.total_reward += reward
-        if self.total_reward <= -100:
-            reward -= 30  # Further penalize if the total reward is very low
+        # End if accumulated penalty gets too high, probably means it got stuck.
+        if self.acummulated_penalty < 0:
+            print("Accumulated Penalty: ", self.acummulated_penalty)
+        if self.acummulated_penalty <= -200:
             return reward, True
 
         return reward, False

@@ -442,8 +442,6 @@ def draw_game_based_on_visibility(screen, map_grid, visibility_grid, entities_li
         if not (0 <= entity.y < len(visibility_grid) and 0 <= entity.x < len(visibility_grid[0])): continue
         if visibility_grid[entity.y][entity.x]:
             pygame.draw.rect(screen, entity.color, pygame.Rect(entity.x * TILESIZE, entity.y * TILESIZE, TILESIZE, TILESIZE))
-            if not isinstance(entity, itm.Item):
-                draw_name_tag(screen, font, entity)
 
 def draw_hud(screen, font, player, floor):
     hud_rect = pygame.Rect(0, game_area_height, WIDTH, HUD_SIZE)
@@ -617,8 +615,7 @@ def step_game(engine_data, action):
         playerUsedTurn = True
 
     if playerUsedTurn:
-        player.lastx = player.x
-        player.lasty = player.y
+        
         for entity in engine_data['entities_list']:
             if entity.isHostile:
                 entity.chooseAction(engine_data['map_grid'], player, engine_data['entities_list'], engine_data['notification_manager'])
@@ -629,10 +626,13 @@ def step_game(engine_data, action):
     if not player.isAlive:
         engine_data['running'] = False
 
-    if engine_data['map_grid'][player.y][player.x] == tiles.STAIRS:
+    if engine_data['map_grid'][player.lasty][player.lastx] == tiles.STAIRS:
         # Go to next level
         engine_data['map_grid'], engine_data['rooms'], engine_data['entities_list'], engine_data['floor'], engine_data['visibility_grid'] = NextLevel(player, engine_data['floor'], engine_data['entities_list'], engine_data['notification_manager'])
     
+    player.lastx = player.x
+    player.lasty = player.y
+
     return engine_data
 
 def render_game(engine_data):
