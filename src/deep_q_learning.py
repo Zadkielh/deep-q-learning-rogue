@@ -98,21 +98,27 @@ def create_test_state(up_tile, down_tile, left_tile, right_tile):
     return (neighbors)
 
 # Define test states with different tile configurations
-void_tile = [0, 0, -1, 1, 1] 
-floor_tile = [1, 0, -1, 0, 0] 
-wall_tile = [2, 0, -1, 1, 1]  
-door_tile = [4, 0, -1, 0, 0] 
-tunnel_tile = [5, 0, -1, 0, 0]  
-goal_tile = [6, 0, -1, 0, 0] 
+void_tile = [0, 0, -1, 1, 1, 1] 
+floor_tile = [1, 0, -1, 0, 0, 0] 
+wall_tile = [2, 0, -1, 1, 1, 1]  
+door_tile = [4, 0, -1, 0, 0, 0] 
+tunnel_tile = [5, 0, -1, 0, 0, 0]  
+goal_tile = [6, 0, -1, 0, 0, 0] 
 
-visited_floor_tile = [1, 0, -1, 1, 0]
-thresh_floor_tile = [1, 0, -1, 1, 1]
+visited_floor_tile = [1, 0, -1, 1, 0, 0]
+thresh_floor_tile = [1, 0, -1, 1, 1, 0]
+last_v_floor_tile = [1, 0, -1, 1, 0, 1]
+last_vt_floor_tile = [1, 0, -1, 1, 1, 1]
 
 test_states = [
     create_test_state(void_tile, void_tile, void_tile, void_tile),
     create_test_state(floor_tile, floor_tile, floor_tile, floor_tile),
     create_test_state(visited_floor_tile, visited_floor_tile, visited_floor_tile, visited_floor_tile),
     create_test_state(thresh_floor_tile, thresh_floor_tile, thresh_floor_tile, thresh_floor_tile),
+
+    create_test_state(last_v_floor_tile, last_v_floor_tile, last_v_floor_tile, last_v_floor_tile),
+    create_test_state(last_vt_floor_tile, last_vt_floor_tile, last_vt_floor_tile, last_vt_floor_tile),
+
     create_test_state(wall_tile, wall_tile, wall_tile, wall_tile),
     create_test_state(door_tile, door_tile, door_tile, door_tile),
     create_test_state(tunnel_tile, tunnel_tile, tunnel_tile, tunnel_tile),
@@ -132,14 +138,14 @@ test_states = [
 # Training the agent
 def run_training():
     map_input_dim = (V_HEIGHT, V_WIDTH)  # Height, Width, Channels for the game map
-    tile_input_dim = (4, 5)  # 4 neighboring tiles, each with 3 features (tile type, entity present, entity type)
+    tile_input_dim = (4, 6)  # 4 neighboring tiles, each with 3 features (tile type, entity present, entity type)
     output_dim = 4  # Number of possible actions
 
     env = RogueEnvironment()
     print("Environment initialized")
     agent = DQNAgent(tile_input_dim, output_dim)
     print("Agent initialized")
-    episodes = 10
+    episodes = 1000
 
     for e in range(episodes):
         print(f"Starting episode {e}")

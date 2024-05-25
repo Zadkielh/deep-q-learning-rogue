@@ -11,12 +11,14 @@ class RogueEnvironment:
         print("Initializing environment")
         self.engine_data = Engine()
         self.action_space = 4  # Up, Down, Left, Right
-        self.feature_size = 5
+        self.feature_size = 6
         self.observation_space = ((4, self.feature_size))
         self.visited = set()  # To track visited tiles
         self.visit_counts = {}
         self.total_reward = 0
         self.action_history = []
+
+        self.decay_factor = 0.01
 
     def reset(self):
         print("Resetting environment")
@@ -114,7 +116,7 @@ class RogueEnvironment:
             
             visit_count = self.visit_counts.get((x, y), 0)
             if visited and not threshold:
-                threshold = visit_count > 20
+                threshold = max(0, visit_count - self.decay_factor) > 20
             
             entity_present = 0
             entity_type = -1
@@ -123,10 +125,15 @@ class RogueEnvironment:
                     entity_present = 1
                     entity_type = entity.type
                     break
-
-            return [tile_type, entity_present, entity_type, visited, threshold]
+            player = self.engine_data['player']
+            last_visited = 1 if (x, y) == (player.lastx, player.lasty) else 0
+            return [tile_type, entity_present, entity_type, visited, threshold, last_visited]
         else:
             return [0, 0, -1, False, False, False]
+        
+    def _decay_visit_counts(self):
+        for pos in self.visit_counts.keys():
+            self.visit_counts[pos] = max(0, self.visit_counts[pos] - self.decay_factor)
 
     def _compute_reward(self, tile, action_type):
         player = self.engine_data['player']
@@ -137,8 +144,11 @@ class RogueEnvironment:
             # Higher penalty for void as it is less common
             if tile == tiles.VOID: reward -= 0
 
-        # Check if the current tile has been visited
         current_pos = (player.x, player.y)
+        if current_pos == (player.lastx, player.lasty):
+            reward -= 0.2  # Penalize revisiting the last visited tile
+
+        # Check if the current tile has been visited     
         if current_pos not in self.visited:
             reward += 1  # Increase reward for exploring new tiles
             # Give additional reward if visited a door for the first time
@@ -152,7 +162,7 @@ class RogueEnvironment:
             self.visit_counts[current_pos] = 1
         else:
             self.visit_counts[current_pos] += 1
-            if self.visit_counts[current_pos] > 20:  # Threshold for penalizing repetitive visits
+            if max(0, self.visit_counts[current_pos] - self.decay_factor) > 20:  # Threshold for penalizing repetitive visits
                 reward -= 0.02
             # Give very small penalty for revisiting tiles
             reward -= 0.01  # Penalize revisiting the same tile
@@ -200,6 +210,8 @@ class RogueEnvironment:
             print("Accumulated Penalty: ", self.acummulated_penalty)
         if self.acummulated_penalty <= -200:
             return reward, True
+        
+        self._decay_visit_counts()
 
         return reward, False
     
