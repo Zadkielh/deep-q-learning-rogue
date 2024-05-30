@@ -17,6 +17,7 @@ class RogueEnvironment:
         self.visit_counts = {}
         self.total_reward = 0
         self.action_history = []
+        self.success = False  # Reset success flag
 
         self.decay_factor = 0.01
 
@@ -28,6 +29,7 @@ class RogueEnvironment:
         self.total_reward = 0
         self.acummulated_penalty = 0
         self.action_history = []
+        self.success = False  # Reset success flag
         return self._get_state()
 
     def step(self, action):
@@ -146,24 +148,24 @@ class RogueEnvironment:
 
         current_pos = (player.x, player.y)
         if current_pos == (player.lastx, player.lasty):
-            reward -= 0.2  # Penalize revisiting the last visited tile
+            reward -= 0.1  # Penalize revisiting the last visited tile
 
         # Check if the current tile has been visited     
         if current_pos not in self.visited:
-            reward += 1  # Increase reward for exploring new tiles
+            reward += 2  # Increase reward for exploring new tiles
             # Give additional reward if visited a door for the first time
             if tile == tiles.DOOR:
-                reward += 0
+                reward += 1
             # Give additional smaller reward for visiting a tunnel tile for the first time
             elif tile == tiles.TUNNEL:
-                reward += 0
+                reward += 0.1
 
             self.visited.add(current_pos)
             self.visit_counts[current_pos] = 1
         else:
             self.visit_counts[current_pos] += 1
             if max(0, self.visit_counts[current_pos] - self.decay_factor) > 20:  # Threshold for penalizing repetitive visits
-                reward -= 0.02
+                reward -= 0.5
             # Give very small penalty for revisiting tiles
             reward -= 0.01  # Penalize revisiting the same tile
 
@@ -178,7 +180,8 @@ class RogueEnvironment:
         if not player.isAlive:
             reward -= 300  # High negative reward for death
         elif tile == tiles.STAIRS:
-            reward += 10  # High positive reward for reaching stairs
+            reward += 200  # High positive reward for reaching stairs
+            self.success = True  # Set success flag
             return reward, True
 
         # Reward for hurting an enemy
